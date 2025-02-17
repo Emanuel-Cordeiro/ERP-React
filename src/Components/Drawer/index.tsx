@@ -39,10 +39,10 @@ export default function DrawerComponent() {
       open
       sx={{
         '& .MuiDrawer-paper': {
-          padding: 1,
-          width: 200,
-          backgroundColor: '#1e1e1e',
-          color: 'white',
+          width: '240px',
+          backgroundColor: 'var(--backgroundDrawer)',
+          color: 'var(--font)',
+          border: 'none',
         },
       }}
     >

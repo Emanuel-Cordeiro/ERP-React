@@ -1,4 +1,11 @@
 .navLink {
   text-decoration: none;
-  color: white;
+  color: inherit;
+  display: block;
+  width: 100%;
+}
+
+.navLink:active {
+  font-weight: bold;
+  color: var(--font);
 }
