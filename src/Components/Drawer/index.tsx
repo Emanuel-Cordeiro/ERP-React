@@ -48,7 +48,12 @@ export default function DrawerComponent() {
     >
       <List>
         {drawerRoutes.map((item) => (
-          <NavLink to={item.routeLink} className={styles.navLink} end>
+          <NavLink
+            key={item.routeTitle}
+            to={item.routeLink}
+            className={styles.navLink}
+            end
+          >
             <ListItem>
               <ListItemText primary={item.routeTitle} />
             </ListItem>

@@ -12,7 +12,6 @@ export default function Header() {
       <Switch
         checked={applicationTheme === 'dark'}
         onClick={() => switchApplicationTheme()}
-        defaultChecked
       />
     </div>
   );
