@@ -4,8 +4,8 @@ interface InputProps {
   id: string;
   label: string;
   width: number;
-  value: string | number;
-  setValue: (value: any) => void;
+  value: string | number | undefined;
+  setValue: (value: unknown) => void;
   disabled?: boolean;
   size?: 'small' | 'medium';
   variant?: 'filled' | 'outlined' | 'standard';
@@ -30,8 +30,14 @@ export default function Input({
       required
       disabled={disabled}
       value={value}
+      focused
       onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
         setValue(event.target.value);
+      }}
+      slotProps={{
+        inputLabel: {
+          shrink: true,
+        },
       }}
       sx={{
         '& label': { color: '#707070' },

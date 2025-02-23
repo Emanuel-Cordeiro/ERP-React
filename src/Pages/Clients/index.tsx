@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Button } from '@mui/material';
+import { Controller, useForm } from 'react-hook-form';
+
+import { Slide, Snackbar } from '@mui/material';
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
+import ButtonForm from '../../Components/ButtonForm';
 
 interface GeneralProps {
   name: string;
@@ -16,73 +19,86 @@ interface GeneralProps {
 }
 
 interface ClientProps extends GeneralProps {
-  client_id: number;
+  client_id?: number;
 }
 
 interface GridProps extends GeneralProps {
   id: number;
 }
 
+const formDefault = {
+  client_id: 0,
+  name: '',
+  address: '',
+  number: '',
+  district: '',
+  city: '',
+  phone: '',
+};
+
 export default function Clients() {
-  const [clientId, setClientId] = useState(0);
-  const [name, setName] = useState('');
-  const [address, setAddress] = useState('');
-  const [number, setNumber] = useState('');
-  const [district, setDistrict] = useState('');
-  const [city, setCity] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-
   const [isEditable, setIsEditable] = useState(false);
-
+  const [isNewRecord, setIsNewRecord] = useState(false);
+  const [snackBarErrorMessage, setSnackBarErrorMessage] = useState('');
   const [dataGridRows, setDataGridRows] = useState<GridProps[]>([]);
+  const didFetch = useRef(false);
+
+  const { handleSubmit, control, reset, getValues, formState } =
+    useForm<ClientProps>({});
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
     { field: 'id', headerName: 'Código', width: 70 },
     { field: 'name', headerName: 'Nome', width: 300 },
-    { field: 'phoneNumber', headerName: 'Telefone', width: 130 },
+    { field: 'phone', headerName: 'Telefone', width: 130 },
     { field: 'address', headerName: 'Endereço', width: 200 },
     { field: 'number', headerName: 'Nr', width: 70 },
     { field: 'district', headerName: 'Bairro', width: 150 },
     { field: 'city', headerName: 'Cidade', width: 150 },
   ];
 
-  async function loadClients() {
-    const { data } = await api.get('Cliente');
+  const loadClients = useCallback(async () => {
+    try {
+      const { data } = await api.get('Cliente');
 
-    const rows = data.map((dataObject: ClientProps) => ({
-      id: dataObject.client_id,
-      name: dataObject.name,
-      number: dataObject.number,
-      address: dataObject.address,
-      district: dataObject.district,
-      city: dataObject.city,
-      phoneNumber: dataObject.phone,
-    }));
+      const rows = data.map((client: ClientProps) => ({
+        id: client.client_id,
+        name: client.name,
+        number: client.number,
+        address: client.address,
+        district: client.district,
+        city: client.city,
+        phone: client.phone,
+      }));
 
-    setDataGridRows(rows);
-  }
+      setDataGridRows(rows);
+
+      reset({ ...rows[0], client_id: rows[0].id });
+    } catch (error) {
+      showErrorMessage(String(error));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleRegisterClient() {
-    const newClient = {
-      name,
-      address,
-      number,
-      district,
-      city,
-      phone: phoneNumber,
-    };
+    try {
+      const formData = { ...getValues() };
 
-    const res = await api.post('Cliente', newClient);
+      if (isNewRecord) delete formData.client_id;
 
-    console.log(res);
-
-    setDataGridRows((prev) => [
-      ...prev,
-      { ...newClient, id: Number(clientId) },
-    ]);
+      const { status } = await api.post('Cliente', formData);
+      if (status === 201) {
+        loadClients();
+        setIsEditable(false);
+        setIsNewRecord(false);
+      }
+    } catch (error) {
+      showErrorMessage(error);
+    }
   }
 
-  async function handleDeleteClient(id: number) {
+  async function handleDeleteClient() {
+    const id = getValues('client_id');
+
     const res = await api.delete(`Cliente/${id}`);
 
     if (res.status === 201) {
@@ -92,24 +108,52 @@ export default function Clients() {
     }
   }
 
-  const didFetch = useRef(false);
+  function handleAddClient() {
+    reset(formDefault);
+
+    setIsNewRecord(true);
+    setIsEditable(true);
+  }
+
+  function handleCancelEdit() {
+    const selectedClientIndex = dataGridRows.findIndex(
+      (client) => client.id === getValues('client_id')
+    );
+
+    reset({
+      ...dataGridRows[selectedClientIndex],
+      client_id: dataGridRows[selectedClientIndex].id,
+    });
+
+    setIsEditable(false);
+  }
+
+  function handleRowClick(params: GridRowParams) {
+    const selectedClient = dataGridRows.find(
+      (client) => client.id === params.row.id
+    );
+
+    reset({ ...selectedClient, client_id: selectedClient!.id });
+  }
+
+  function showErrorMessage(error: unknown) {
+    setSnackBarErrorMessage(String(error));
+
+    setTimeout(() => setSnackBarErrorMessage(''), 5000);
+  }
+
+  function handleFormError() {
+    const error = Object.values(formState.errors)[0];
+
+    showErrorMessage(String(error.message));
+  }
 
   useEffect(() => {
     if (!didFetch.current) {
       loadClients();
       didFetch.current = true;
     }
-  }, []);
-
-  function handleRowClick(params: GridRowParams) {
-    setClientId(params.row.id);
-    setName(params.row.name);
-    setAddress(params.row.address);
-    setNumber(params.row.number);
-    setDistrict(params.row.district);
-    setCity(params.row.city);
-    setPhoneNumber(params.row.phoneNumber);
-  }
+  }, [loadClients]);
 
   return (
     <>
@@ -122,29 +166,51 @@ export default function Clients() {
           flex: 1,
         }}
       >
-        <Input
-          id="cliendId"
-          label="Código"
-          width={100}
-          value={clientId}
-          setValue={setClientId}
-          disabled
+        <Controller
+          name="client_id"
+          control={control}
+          render={({ field: { value, onChange } }) => (
+            <Input
+              id="client_id"
+              label="Código"
+              width={100}
+              value={value}
+              setValue={onChange}
+              disabled
+            />
+          )}
         />
-        <Input
-          id="clientName"
-          label="Nome"
-          width={500}
-          value={name}
-          setValue={setName}
-          disabled={!isEditable}
+
+        <Controller
+          name="name"
+          control={control}
+          rules={{ required: 'O nome é obrigatório.' }}
+          render={({ field: { value, onChange } }) => (
+            <Input
+              id="clientName"
+              label="Nome"
+              width={500}
+              value={value}
+              setValue={onChange}
+              disabled={!isEditable}
+            />
+          )}
         />
-        <Input
-          id="phoneNumber"
-          label="Telefone"
-          width={150}
-          value={phoneNumber}
-          setValue={setPhoneNumber}
-          disabled={!isEditable}
+
+        <Controller
+          name="phone"
+          control={control}
+          rules={{ required: 'O telefone é obrigatório.' }}
+          render={({ field: { value, onChange } }) => (
+            <Input
+              id="phone"
+              label="Telefone"
+              width={150}
+              value={value}
+              setValue={onChange}
+              disabled={!isEditable}
+            />
+          )}
         />
       </div>
       <div
@@ -154,37 +220,68 @@ export default function Clients() {
           flex: 1,
         }}
       >
-        <Input
-          id="addressId"
-          label="Endereço"
-          width={500}
-          value={address}
-          setValue={setAddress}
-          disabled={!isEditable}
+        <Controller
+          name="address"
+          control={control}
+          rules={{ required: 'O endereço é obrigatório.' }}
+          render={({ field: { value, onChange } }) => (
+            <Input
+              id="address"
+              label="Endereço"
+              width={500}
+              value={value}
+              setValue={onChange}
+              disabled={!isEditable}
+            />
+          )}
         />
-        <Input
-          id="addressNumber"
-          label="Nr"
-          width={70}
-          value={number}
-          setValue={setNumber}
-          disabled={!isEditable}
+
+        <Controller
+          name="number"
+          control={control}
+          rules={{ required: 'O número de entrega é obrigatório.' }}
+          render={({ field: { value, onChange } }) => (
+            <Input
+              id="number"
+              label="Nr"
+              width={70}
+              value={value}
+              setValue={onChange}
+              disabled={!isEditable}
+            />
+          )}
         />
-        <Input
-          id="district"
-          label="Bairro"
-          width={250}
-          value={district}
-          setValue={setDistrict}
-          disabled={!isEditable}
+
+        <Controller
+          name="district"
+          control={control}
+          rules={{ required: 'O bairro é obrigatório.' }}
+          render={({ field: { value, onChange } }) => (
+            <Input
+              id="district"
+              label="Bairro"
+              width={250}
+              value={value}
+              setValue={onChange}
+              disabled={!isEditable}
+            />
+          )}
         />
-        <Input
-          id="city"
-          label="Cidade"
-          width={250}
-          value={city}
-          setValue={setCity}
-          disabled={!isEditable}
+
+        <Controller
+          name="city"
+          control={control}
+          rules={{ required: 'A cidade é obrigatória.' }}
+          render={({ field: { value, onChange } }) => (
+            <Input
+              id="city"
+              label="Cidade"
+              width={250}
+              value={value}
+              setValue={onChange}
+              disabled={!isEditable}
+            />
+          )}
         />
       </div>
 
@@ -196,21 +293,12 @@ export default function Clients() {
             flex: 1,
           }}
         >
-          <Button
-            onClick={handleRegisterClient}
-            sx={{ marginRight: 2 }}
-            variant="contained"
-          >
-            Gravar
-          </Button>
+          <ButtonForm
+            title="Gravar"
+            handleFunction={handleSubmit(handleRegisterClient, handleFormError)}
+          />
 
-          <Button
-            onClick={() => setIsEditable(false)}
-            sx={{ marginRight: 2 }}
-            variant="contained"
-          >
-            Cancelar
-          </Button>
+          <ButtonForm title="Cancelar" handleFunction={handleCancelEdit} />
         </div>
       ) : (
         <div
@@ -220,29 +308,14 @@ export default function Clients() {
             flex: 1,
           }}
         >
-          <Button
-            onClick={handleRegisterClient}
-            sx={{ marginRight: 2 }}
-            variant="contained"
-          >
-            Incluir
-          </Button>
+          <ButtonForm title="Incluir" handleFunction={handleAddClient} />
 
-          <Button
-            onClick={() => setIsEditable(true)}
-            sx={{ marginRight: 2 }}
-            variant="contained"
-          >
-            Alterar
-          </Button>
+          <ButtonForm
+            title="Alterar"
+            handleFunction={() => setIsEditable(true)}
+          />
 
-          <Button
-            onClick={() => handleDeleteClient(clientId)}
-            sx={{ marginRight: 2 }}
-            variant="contained"
-          >
-            Excluir
-          </Button>
+          <ButtonForm title="Excluir" handleFunction={handleDeleteClient} />
         </div>
       )}
 
@@ -267,6 +340,19 @@ export default function Clients() {
           pageSizeOptions={[5]}
           disableRowSelectionOnClick
           onRowClick={handleRowClick}
+        />
+
+        <Snackbar
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          open={snackBarErrorMessage !== ''}
+          message={snackBarErrorMessage}
+          TransitionComponent={Slide}
+          ContentProps={{
+            sx: {
+              backgroundColor: 'red',
+              flex: 1,
+            },
+          }}
         />
       </div>
     </>
