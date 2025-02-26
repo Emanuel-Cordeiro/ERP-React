@@ -2,8 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Controller, useForm } from 'react-hook-form';
 
-import { Slide, Snackbar } from '@mui/material';
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Slide,
+  Snackbar,
+} from '@mui/material';
 
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
@@ -39,6 +48,7 @@ const formDefault = {
 export default function Clients() {
   const [isEditable, setIsEditable] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
+  const [shouldDeleteClient, setShouldDeleteClient] = useState(false);
   const [snackBarErrorMessage, setSnackBarErrorMessage] = useState('');
   const [dataGridRows, setDataGridRows] = useState<GridProps[]>([]);
   const didFetch = useRef(false);
@@ -99,12 +109,27 @@ export default function Clients() {
   async function handleDeleteClient() {
     const id = getValues('client_id');
 
-    const res = await api.delete(`Cliente/${id}`);
+    try {
+      const res = await api.delete(`Cliente/${id}`);
 
-    if (res.status === 201) {
-      const updatedList = dataGridRows.filter((item) => item.id !== id);
+      if (res.status === 201) {
+        const updatedList = dataGridRows.filter((item) => item.id !== id);
 
-      setDataGridRows(updatedList);
+        setDataGridRows(updatedList);
+
+        const selectedClientIndex = dataGridRows.findIndex(
+          (client) => client.id === getValues('client_id')
+        );
+
+        reset({
+          ...updatedList[selectedClientIndex - 1],
+          client_id: updatedList[selectedClientIndex - 1].id,
+        });
+      }
+
+      setShouldDeleteClient(false);
+    } catch (error) {
+      showErrorMessage(error);
     }
   }
 
@@ -157,7 +182,7 @@ export default function Clients() {
 
   return (
     <>
-      <h1 style={{ marginLeft: '250px', color: 'black' }}>Clientes</h1>
+      <h1 style={{ marginLeft: '250px', color: 'var(--font)' }}>Clientes</h1>
 
       <div
         style={{
@@ -315,7 +340,10 @@ export default function Clients() {
             handleFunction={() => setIsEditable(true)}
           />
 
-          <ButtonForm title="Excluir" handleFunction={handleDeleteClient} />
+          <ButtonForm
+            title="Excluir"
+            handleFunction={() => setShouldDeleteClient(true)}
+          />
         </div>
       )}
 
@@ -340,6 +368,19 @@ export default function Clients() {
           pageSizeOptions={[5]}
           disableRowSelectionOnClick
           onRowClick={handleRowClick}
+          sx={{
+            '& .MuiDataGrid-columnHeaders': {
+              color: 'black',
+              fontSize: '16px',
+              fontWeight: 'bold',
+            },
+            '& .MuiDataGrid-cell': {
+              color: 'var(--font)',
+            },
+            '& .MuiTablePagination-toolbar': {
+              color: 'var(--font)',
+            },
+          }}
         />
 
         <Snackbar
@@ -354,6 +395,19 @@ export default function Clients() {
             },
           }}
         />
+
+        <Dialog open={shouldDeleteClient}>
+          <DialogTitle>Cadastro de Clientes</DialogTitle>
+          <DialogContent>
+            <DialogContentText>Excluir esse cliente?</DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShouldDeleteClient(false)}>Não</Button>
+            <Button onClick={handleDeleteClient} autoFocus>
+              Excluir
+            </Button>
+          </DialogActions>
+        </Dialog>
       </div>
     </>
   );

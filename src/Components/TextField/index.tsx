@@ -40,12 +40,24 @@ export default function Input({
         },
       }}
       sx={{
-        '& label': { color: '#707070' },
         width,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--backgroundInput)',
         borderRadius: '8px',
         marginRight: '15px',
         marginBottom: '20px',
+        input: { color: 'var(--font) !important' },
+        label: { color: 'var(--font) !important' },
+        '& .MuiOutlinedInput-root': {
+          '& fieldset': { borderColor: 'var(--font)' },
+          '&:hover fieldset': { borderColor: 'var(--font)' },
+          '&.Mui-focused fieldset': { borderColor: 'var(--font)' },
+          '&.Mui-disabled': {
+            '& fieldset': { borderColor: 'var(--font) !important' },
+          },
+        },
+        '& .MuiInputBase-input.Mui-disabled': {
+          WebkitTextFillColor: 'var(--font) !important',
+        },
       }}
     />
   );

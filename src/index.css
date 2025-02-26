@@ -2,12 +2,14 @@
   --background: #ffffff;
   --backgroundDrawer: #e0e0e0;
   --font: #000000;
+  --backgroundInput: #ffffff;
 }
 
 [data-theme='dark'] {
   --background: #242424;
   --backgroundDrawer: #1e1e1e;
   --font: #ffffff;
+  --backgroundInput: #1d2126;
 }
 
 :root {
