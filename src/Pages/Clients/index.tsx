@@ -3,22 +3,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Slide,
-  Snackbar,
-} from '@mui/material';
 
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
+import ToastMessage from '../../Components/ToastMessage';
+import DialogComponent from '../../Components/DialogComponent';
 
-interface GeneralProps {
+interface IClientProps {
+  id?: number;
+  client_id?: number;
   name: string;
   address: string;
   number: string;
@@ -27,16 +21,8 @@ interface GeneralProps {
   phone: string;
 }
 
-interface ClientProps extends GeneralProps {
-  client_id?: number;
-}
-
-interface GridProps extends GeneralProps {
-  id: number;
-}
-
 const formDefault = {
-  client_id: 0,
+  id: 0,
   name: '',
   address: '',
   number: '',
@@ -49,12 +35,12 @@ export default function Clients() {
   const [isEditable, setIsEditable] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteClient, setShouldDeleteClient] = useState(false);
-  const [snackBarErrorMessage, setSnackBarErrorMessage] = useState('');
-  const [dataGridRows, setDataGridRows] = useState<GridProps[]>([]);
+  const [toastErrorMessage, setToastErrorMessage] = useState('');
+  const [dataGridRows, setDataGridRows] = useState<IClientProps[]>([]);
   const didFetch = useRef(false);
 
   const { handleSubmit, control, reset, getValues, formState } =
-    useForm<ClientProps>({});
+    useForm<IClientProps>({});
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
     { field: 'id', headerName: 'Código', width: 70 },
@@ -70,8 +56,9 @@ export default function Clients() {
     try {
       const { data } = await api.get('Cliente');
 
-      const rows = data.map((client: ClientProps) => ({
-        id: client.client_id,
+      const rows = data.map((client: IClientProps) => ({
+        id: client.id,
+        client_id: client.id,
         name: client.name,
         number: client.number,
         address: client.address,
@@ -91,12 +78,19 @@ export default function Clients() {
 
   async function handleRegisterClient() {
     try {
-      const formData = { ...getValues() };
+      let formData;
 
-      if (isNewRecord) delete formData.client_id;
+      if (isNewRecord) {
+        formData = { ...getValues() };
+
+        delete formData.id;
+      } else {
+        formData = { ...getValues(), client_id: getValues('client_id') };
+      }
 
       const { status } = await api.post('Cliente', formData);
-      if (status === 201) {
+
+      if (status === 200 || status === 201) {
         loadClients();
         setIsEditable(false);
         setIsNewRecord(false);
@@ -112,18 +106,17 @@ export default function Clients() {
     try {
       const res = await api.delete(`Cliente/${id}`);
 
-      if (res.status === 201) {
+      if (res.status === 200) {
         const updatedList = dataGridRows.filter((item) => item.id !== id);
 
         setDataGridRows(updatedList);
 
         const selectedClientIndex = dataGridRows.findIndex(
-          (client) => client.id === getValues('client_id')
+          (client) => client.client_id === getValues('client_id')
         );
 
         reset({
           ...updatedList[selectedClientIndex - 1],
-          client_id: updatedList[selectedClientIndex - 1].id,
         });
       }
 
@@ -141,30 +134,31 @@ export default function Clients() {
   }
 
   function handleCancelEdit() {
-    const selectedClientIndex = dataGridRows.findIndex(
-      (client) => client.id === getValues('client_id')
-    );
+    if (isNewRecord) {
+      const selectedClientIndex = dataGridRows.findIndex(
+        (client) => client.client_id === getValues('client_id')
+      );
 
-    reset({
-      ...dataGridRows[selectedClientIndex],
-      client_id: dataGridRows[selectedClientIndex].id,
-    });
+      reset({
+        ...dataGridRows[selectedClientIndex],
+      });
+    }
 
     setIsEditable(false);
   }
 
   function handleRowClick(params: GridRowParams) {
     const selectedClient = dataGridRows.find(
-      (client) => client.id === params.row.id
+      (client) => client.client_id === params.row.id
     );
 
-    reset({ ...selectedClient, client_id: selectedClient!.id });
+    reset({ ...selectedClient });
   }
 
   function showErrorMessage(error: unknown) {
-    setSnackBarErrorMessage(String(error));
+    setToastErrorMessage(String(error));
 
-    setTimeout(() => setSnackBarErrorMessage(''), 5000);
+    setTimeout(() => setToastErrorMessage(''), 5000);
   }
 
   function handleFormError() {
@@ -192,11 +186,11 @@ export default function Clients() {
         }}
       >
         <Controller
-          name="client_id"
+          name="id"
           control={control}
           render={({ field: { value, onChange } }) => (
             <Input
-              id="client_id"
+              id="id"
               label="Código"
               width={100}
               value={value}
@@ -214,7 +208,7 @@ export default function Clients() {
             <Input
               id="clientName"
               label="Nome"
-              width={500}
+              width={470}
               value={value}
               setValue={onChange}
               disabled={!isEditable}
@@ -383,31 +377,16 @@ export default function Clients() {
           }}
         />
 
-        <Snackbar
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          open={snackBarErrorMessage !== ''}
-          message={snackBarErrorMessage}
-          TransitionComponent={Slide}
-          ContentProps={{
-            sx: {
-              backgroundColor: 'red',
-              flex: 1,
-            },
-          }}
-        />
+        <ToastMessage message={toastErrorMessage} />
 
-        <Dialog open={shouldDeleteClient}>
-          <DialogTitle>Cadastro de Clientes</DialogTitle>
-          <DialogContent>
-            <DialogContentText>Excluir esse cliente?</DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setShouldDeleteClient(false)}>Não</Button>
-            <Button onClick={handleDeleteClient} autoFocus>
-              Excluir
-            </Button>
-          </DialogActions>
-        </Dialog>
+        <DialogComponent
+          title="Cadastro de Clientes"
+          text="Excluir esse cliente?"
+          handleButtonAction={handleDeleteClient}
+          handleButtonText="Excluir"
+          state={shouldDeleteClient}
+          setState={setShouldDeleteClient}
+        />
       </div>
     </>
   );
