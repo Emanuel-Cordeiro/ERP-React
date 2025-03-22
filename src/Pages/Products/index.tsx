@@ -108,7 +108,7 @@ export default function Products() {
       if (isNewRecord) {
         formData = { ...getValues() };
 
-        delete formData.id;
+        delete formData.product_id;
       } else {
         formData = { ...getValues(), product_id: getValues('product_id') };
       }

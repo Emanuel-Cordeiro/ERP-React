@@ -63,8 +63,10 @@ export function ItensDataGrid() {
   }
 
   function handleDeleteSingleItem(id: number) {
-    const indexToRemove = itensDataGridRows.findIndex((item) => item.id === id);
-    console.log(itensDataGridRows);
+    const indexToRemove = itensDataGridRows.findIndex(
+      (item) => item.item_id === id
+    );
+
     if (indexToRemove === -1) return;
 
     fieldArray.remove(indexToRemove);
@@ -148,7 +150,7 @@ export function ItensDataGrid() {
   const handleKeyDown: GridEventListener<'cellKeyDown'> = (params, event) => {
     if (event.key === 'ArrowDown') {
       const isLastRow =
-        params.id === itensDataGridRows[itensDataGridRows.length - 1].id;
+        params.id === itensDataGridRows[itensDataGridRows.length - 1].item_id;
       if (isLastRow && params.id !== 0) {
         addNewRow();
       }

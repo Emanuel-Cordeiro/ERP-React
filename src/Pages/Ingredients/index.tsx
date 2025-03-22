@@ -3,23 +3,16 @@ import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Slide,
-  Snackbar,
-} from '@mui/material';
 
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
+import ToastMessage from '../../Components/ToastMessage';
+import DialogComponent from '../../Components/DialogComponent';
 
-interface IngredientProps {
+interface IIngredientProps {
   id?: number;
+  ingredient_id?: number;
   description: string;
   unity: string;
   cost: number;
@@ -36,12 +29,12 @@ const formDefault = {
 
 export default function Ingredients() {
   const { control, getValues, reset, handleSubmit, formState } =
-    useForm<IngredientProps>({});
+    useForm<IIngredientProps>({});
   const [isEditable, setIsEditable] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
-  const [snackBarErrorMessage, setSnackBarErrorMessage] = useState('');
-  const [dataGridRows, setDataGridRows] = useState<IngredientProps[]>([]);
+  const [toastErrorMessage, setToastErrorMessage] = useState('');
+  const [dataGridRows, setDataGridRows] = useState<IIngredientProps[]>([]);
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
     { field: 'id', headerName: 'Código', width: 70 },
@@ -51,20 +44,26 @@ export default function Ingredients() {
     { field: 'stock', headerName: 'Estoque', width: 100 },
   ];
 
-  async function loadIngredients() {
-    const { data } = await api.get('Ingrediente');
+  function handleRowClick(params: GridRowParams) {
+    const selectedIngredient = dataGridRows.find(
+      (ingredient) => ingredient.id === params.row.id
+    );
 
-    const rows = data.map((ingredient: IngredientProps) => ({
-      id: ingredient.id,
-      description: ingredient.description,
-      unity: ingredient.unity,
-      cost: ingredient.cost,
-      stock: ingredient.stock,
-    }));
+    reset({
+      ...selectedIngredient,
+    });
+  }
 
-    setDataGridRows(rows);
+  function showErrorMessage(error: unknown) {
+    setToastErrorMessage(String(error));
 
-    reset(rows[0]);
+    setTimeout(() => setToastErrorMessage(''), 5000);
+  }
+
+  function handleFormError() {
+    const error = Object.values(formState.errors)[0];
+
+    showErrorMessage(String(error!.message));
   }
 
   function handleAddClient() {
@@ -87,23 +86,44 @@ export default function Ingredients() {
     setIsNewRecord(false);
   }
 
+  async function loadIngredients() {
+    try {
+      const { data } = await api.get('Ingrediente');
+
+      const rows = data.map((ingredient: IIngredientProps) => ({
+        id: ingredient.id,
+        description: ingredient.description,
+        unity: ingredient.unity,
+        cost: ingredient.cost,
+        stock: ingredient.stock,
+      }));
+
+      setDataGridRows(rows);
+
+      reset(rows[0]);
+    } catch (error) {
+      showErrorMessage(String(error));
+    }
+  }
+
   async function handleRegisterIngredient() {
     try {
-      const formData = { ...getValues() };
+      let formData;
 
-      if (isNewRecord) delete formData.id;
+      if (isNewRecord) {
+        formData = { ...getValues() };
 
-      const { status, statusText } = await api.post('Ingrediente', formData);
-
-      if (status === 201) {
-        loadIngredients();
-
-        setIsEditable(false);
-        setIsNewRecord(false);
+        delete formData.ingredient_id;
+      } else {
+        formData = { ...getValues, ingredient_id: getValues('id') };
       }
 
-      if (status === 500) {
-        console.log(statusText);
+      const { status } = await api.post('Ingrediente', formData);
+
+      if (status === 200 || status === 201) {
+        loadIngredients();
+        setIsEditable(false);
+        setIsNewRecord(false);
       }
     } catch (error) {
       showErrorMessage(error);
@@ -134,28 +154,6 @@ export default function Ingredients() {
     } catch (error) {
       showErrorMessage(error);
     }
-  }
-
-  function showErrorMessage(error: unknown) {
-    setSnackBarErrorMessage(String(error));
-
-    setTimeout(() => setSnackBarErrorMessage(''), 5000);
-  }
-
-  function handleFormError() {
-    const error = Object.values(formState.errors)[0];
-
-    showErrorMessage(String(error!.message));
-  }
-
-  function handleRowClick(params: GridRowParams) {
-    const selectedIngredient = dataGridRows.find(
-      (ingredient) => ingredient.id === params.row.id
-    );
-
-    reset({
-      ...selectedIngredient,
-    });
   }
 
   useEffect(() => {
@@ -325,31 +323,16 @@ export default function Ingredients() {
         />
       </div>
 
-      <Snackbar
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        open={snackBarErrorMessage !== ''}
-        message={snackBarErrorMessage}
-        TransitionComponent={Slide}
-        ContentProps={{
-          sx: {
-            backgroundColor: 'red',
-            flex: 1,
-          },
-        }}
-      />
+      <ToastMessage message={toastErrorMessage} />
 
-      <Dialog open={shouldDeleteItem}>
-        <DialogTitle>Cadastro de Ingredientes</DialogTitle>
-        <DialogContent>
-          <DialogContentText>Excluir esse ingrediente?</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShouldDeleteItem(false)}>Não</Button>
-          <Button onClick={handleDeleteIngredient} autoFocus>
-            Excluir
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <DialogComponent
+        title="Cadastro de Ingredientes"
+        text="Excluir esse ingrediente?"
+        handleButtonAction={handleDeleteIngredient}
+        handleButtonText="Excluir"
+        state={shouldDeleteItem}
+        setState={setShouldDeleteItem}
+      />
     </>
   );
 }
