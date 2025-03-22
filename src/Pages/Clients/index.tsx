@@ -40,7 +40,7 @@ export default function Clients() {
   const didFetch = useRef(false);
 
   const { handleSubmit, control, reset, getValues, formState } =
-    useForm<IClientProps>({});
+    useForm<IClientProps>({ defaultValues: formDefault });
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
     { field: 'id', headerName: 'Código', width: 70 },

@@ -1,9 +1,8 @@
-import { Controller, useForm } from 'react-hook-form';
-import Input from '../../Components/TextField';
 import { useEffect, useState } from 'react';
+
+import { Controller, useForm } from 'react-hook-form';
+
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
-import api from '../../Services/api';
-import ButtonForm from '../../Components/ButtonForm';
 import {
   Button,
   Dialog,
@@ -15,8 +14,13 @@ import {
   Snackbar,
 } from '@mui/material';
 
-interface ProductProps {
+import api from '../../Services/api';
+import Input from '../../Components/TextField';
+import ButtonForm from '../../Components/ButtonForm';
+
+interface IProductProps {
   id?: number;
+  product_id?: number;
   description: string;
   price: number;
   unity: string;
@@ -35,12 +39,12 @@ const formDefault = {
 
 export default function Products() {
   const { control, getValues, reset, handleSubmit, formState } =
-    useForm<ProductProps>({});
+    useForm<IProductProps>({ defaultValues: formDefault });
   const [isEditable, setIsEditable] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
   const [snackBarErrorMessage, setSnackBarErrorMessage] = useState('');
-  const [dataGridRows, setDataGridRows] = useState<ProductProps[]>([]);
+  const [dataGridRows, setDataGridRows] = useState<IProductProps[]>([]);
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
     { field: 'id', headerName: 'Código', width: 70 },
@@ -73,21 +77,22 @@ export default function Products() {
 
   async function handleRegisterProduct() {
     try {
-      const formData = { ...getValues() };
+      let formData;
 
-      if (isNewRecord) delete formData.id;
+      if (isNewRecord) {
+        formData = { ...getValues() };
 
-      const { status, statusText } = await api.post('Produto', formData);
-
-      if (status === 201) {
-        loadProducts();
-
-        setIsEditable(false);
-        setIsNewRecord(false);
+        delete formData.id;
+      } else {
+        formData = { ...getValues(), product_id: getValues('product_id') };
       }
 
-      if (status === 500) {
-        console.log(statusText);
+      const { status } = await api.post('Produto', formData);
+
+      if (status === 200 || status === 201) {
+        loadProducts();
+        setIsEditable(false);
+        setIsNewRecord(false);
       }
     } catch (error) {
       showErrorMessage(error);
@@ -95,26 +100,26 @@ export default function Products() {
   }
 
   async function loadProducts() {
-    const { data } = await api.get('Produto');
+    try {
+      const { data } = await api.get('Produto');
 
-    const rows = data.map((item: ProductProps) => ({
-      id: item.id,
-      description: item.description,
-      unity: item.unity,
-      price: item.price,
-      cost: item.cost,
-      stock: item.stock,
-    }));
+      const rows = data.map((item: IProductProps) => ({
+        id: item.id,
+        product_id: item.id,
+        description: item.description,
+        unity: item.unity,
+        price: item.price,
+        cost: item.cost,
+        stock: item.stock,
+      }));
 
-    setDataGridRows(rows);
+      setDataGridRows(rows);
 
-    reset(rows[0]);
+      reset({ ...rows[0], product_id: rows[0].product_id });
+    } catch (error) {
+      showErrorMessage(String(error));
+    }
   }
-
-  useEffect(() => {
-    loadProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   function handleRowClick(params: GridRowParams) {
     const selectedItem = dataGridRows.find((item) => item.id === params.row.id);
@@ -159,6 +164,11 @@ export default function Products() {
       showErrorMessage(error);
     }
   }
+
+  useEffect(() => {
+    loadProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
