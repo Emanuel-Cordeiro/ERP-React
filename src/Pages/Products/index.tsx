@@ -3,20 +3,12 @@ import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Slide,
-  Snackbar,
-} from '@mui/material';
 
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
+import DialogComponent from '../../Components/DialogComponent';
+import ToastMessage from '../../Components/ToastMessage';
 
 interface IProductProps {
   id?: number;
@@ -43,7 +35,7 @@ export default function Products() {
   const [isEditable, setIsEditable] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
-  const [snackBarErrorMessage, setSnackBarErrorMessage] = useState('');
+  const [toastErrorMessage, setToastErrorMessage] = useState('');
   const [dataGridRows, setDataGridRows] = useState<IProductProps[]>([]);
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
@@ -55,48 +47,10 @@ export default function Products() {
     { field: 'stock', headerName: 'Estoque', width: 100 },
   ];
 
-  function handleAddProduct() {
-    reset(formDefault);
+  function handleRowClick(params: GridRowParams) {
+    const selectedItem = dataGridRows.find((item) => item.id === params.row.id);
 
-    setIsNewRecord(true);
-    setIsEditable(true);
-  }
-
-  function handleCancelEdit() {
-    const selectedItemIndex = dataGridRows.findIndex(
-      (item) => item.id === getValues('id')
-    );
-
-    reset({
-      ...dataGridRows[selectedItemIndex],
-    });
-
-    setIsEditable(false);
-    setIsNewRecord(false);
-  }
-
-  async function handleRegisterProduct() {
-    try {
-      let formData;
-
-      if (isNewRecord) {
-        formData = { ...getValues() };
-
-        delete formData.id;
-      } else {
-        formData = { ...getValues(), product_id: getValues('product_id') };
-      }
-
-      const { status } = await api.post('Produto', formData);
-
-      if (status === 200 || status === 201) {
-        loadProducts();
-        setIsEditable(false);
-        setIsNewRecord(false);
-      }
-    } catch (error) {
-      showErrorMessage(error);
-    }
+    reset({ ...selectedItem });
   }
 
   async function loadProducts() {
@@ -119,24 +73,6 @@ export default function Products() {
     } catch (error) {
       showErrorMessage(String(error));
     }
-  }
-
-  function handleRowClick(params: GridRowParams) {
-    const selectedItem = dataGridRows.find((item) => item.id === params.row.id);
-
-    reset({ ...selectedItem });
-  }
-
-  function showErrorMessage(error: unknown) {
-    setSnackBarErrorMessage(String(error));
-
-    setTimeout(() => setSnackBarErrorMessage(''), 5000);
-  }
-
-  function handleFormError() {
-    const error = Object.values(formState.errors)[0];
-
-    showErrorMessage(String(error!.message));
   }
 
   async function handleDeleteProduct() {
@@ -163,6 +99,62 @@ export default function Products() {
     } catch (error) {
       showErrorMessage(error);
     }
+  }
+
+  async function handleRegisterProduct() {
+    try {
+      let formData;
+
+      if (isNewRecord) {
+        formData = { ...getValues() };
+
+        delete formData.id;
+      } else {
+        formData = { ...getValues(), product_id: getValues('product_id') };
+      }
+
+      const { status } = await api.post('Produto', formData);
+
+      if (status === 200 || status === 201) {
+        loadProducts();
+        setIsEditable(false);
+        setIsNewRecord(false);
+      }
+    } catch (error) {
+      showErrorMessage(error);
+    }
+  }
+
+  function handleAddProduct() {
+    reset(formDefault);
+
+    setIsNewRecord(true);
+    setIsEditable(true);
+  }
+
+  function handleCancelEdit() {
+    const selectedItemIndex = dataGridRows.findIndex(
+      (item) => item.id === getValues('id')
+    );
+
+    reset({
+      ...dataGridRows[selectedItemIndex],
+    });
+
+    setIsEditable(false);
+    setIsNewRecord(false);
+  }
+
+  function handleFormError() {
+    const error = Object.values(formState.errors)[0];
+
+    showErrorMessage(String(error!.message));
+  }
+
+  function showErrorMessage(error: unknown) {
+    setToastErrorMessage(String(error));
+
+    setTimeout(() => setToastErrorMessage(''), 5000);
   }
 
   useEffect(() => {
@@ -345,31 +337,16 @@ export default function Products() {
         />
       </div>
 
-      <Snackbar
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        open={snackBarErrorMessage !== ''}
-        message={snackBarErrorMessage}
-        TransitionComponent={Slide}
-        ContentProps={{
-          sx: {
-            backgroundColor: 'red',
-            flex: 1,
-          },
-        }}
+      <DialogComponent
+        title="Cadastro de Produtos"
+        text="Excluir esse produto?"
+        handleButtonAction={handleDeleteProduct}
+        handleButtonText="Excluir"
+        state={shouldDeleteItem}
+        setState={setShouldDeleteItem}
       />
 
-      <Dialog open={shouldDeleteItem}>
-        <DialogTitle>Cadastro de Produtos</DialogTitle>
-        <DialogContent>
-          <DialogContentText>Excluir esse produto?</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShouldDeleteItem(false)}>Não</Button>
-          <Button onClick={handleDeleteProduct} autoFocus>
-            Excluir
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ToastMessage message={toastErrorMessage} />
     </>
   );
 }
