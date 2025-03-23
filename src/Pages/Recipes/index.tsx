@@ -29,7 +29,7 @@ export interface RecipeProps {
   id?: number;
   description: string;
   cost: number;
-  itens: Array<RecipeIngredientProps>;
+  itens?: Array<RecipeIngredientProps>;
 }
 
 const formDefault = {
@@ -40,7 +40,7 @@ const formDefault = {
 };
 
 export default function Recipes() {
-  const form = useForm<RecipeProps>({});
+  const form = useForm<RecipeProps>({ defaultValues: formDefault });
   const { control, getValues, reset, handleSubmit, formState } = form;
 
   const [isEditable, setIsEditable] = useState(false);
@@ -147,14 +147,21 @@ export default function Recipes() {
   async function handleRegisterRecipe() {
     try {
       const formData = { ...getValues() };
+      const itens = formData?.itens?.map((i) => ({
+        ...i,
+        ingredient_id: i.id,
+      }));
 
-      if (isNewRecord) delete formData.id;
+      if (itens) delete formData.itens;
 
-      const { status } = await api.post('Receita', formData);
+      const finalForm = { ...formData, itens: itens };
 
-      if (status === 201) {
+      if (isNewRecord) delete finalForm.id;
+
+      const { status } = await api.post('Receita', finalForm);
+
+      if (status === 200 || status === 201) {
         loadRecipes();
-
         setIsEditable(false);
         setIsNewRecord(false);
       }

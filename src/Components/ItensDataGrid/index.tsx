@@ -9,7 +9,8 @@ import api from '../../Services/api';
 import { RecipeProps } from '../../Pages/Recipes';
 import { IGenericItem } from '../../Types/common';
 
-interface ItensProps {
+interface IItensProps {
+  id?: number;
   item_id?: number;
   description: string;
   quantity: number;
@@ -17,70 +18,16 @@ interface ItensProps {
 }
 
 export function ItensDataGrid() {
-  const [itensDataGridRows, setItensDataGridRows] = useState<ItensProps[]>([]);
+  const [itensDataGridRows, setItensDataGridRows] = useState<IItensProps[]>([]);
   const [itensSelect, setItensSelect] = useState<IGenericItem[]>([]);
   const form = useFormContext<RecipeProps>();
   const fieldArray = useFieldArray({ control: form.control, name: 'itens' });
 
-  function handleChange(event: SelectChangeEvent<number>, rowIndex: number) {
-    const selectedId = event.target.value as number;
-    const selectedIngredient = itensSelect.find(
-      (item) => item.id === selectedId
-    );
-
-    const updatedItem = {
-      ...fieldArray.fields[rowIndex],
-      id: selectedIngredient?.id || 0,
-      description: selectedIngredient?.description || '',
-      quantity: 0,
-      selectedItem: selectedId,
-    };
-
-    fieldArray.update(rowIndex, updatedItem);
-
-    setItensDataGridRows((prevRows) =>
-      prevRows.map((row, index) => (index === rowIndex ? updatedItem : row))
-    );
-  }
-
-  const handleProcessRowUpdate = (newRow: ItensProps) => {
-    const index = itensDataGridRows.length - 1;
-
-    fieldArray.update(index, newRow);
-
-    return newRow;
-  };
-
-  async function loadItensSelect() {
-    const { data } = await api.get('Ingrediente');
-
-    const obj = data.map((item: IGenericItem) => ({
-      id: item.id,
-      description: item.description,
-    }));
-
-    setItensSelect(obj);
-  }
-
-  function handleDeleteSingleItem(id: number) {
-    const indexToRemove = itensDataGridRows.findIndex(
-      (item) => item.item_id === id
-    );
-
-    if (indexToRemove === -1) return;
-
-    fieldArray.remove(indexToRemove);
-
-    setItensDataGridRows((prevRows) =>
-      prevRows.filter((_, index) => index !== indexToRemove)
-    );
-  }
-
-  const ingredientDataGridColumns: GridColDef<ItensProps>[] = [
+  const itemDataGridColumns: GridColDef<IItensProps>[] = [
     { field: 'id', headerName: 'Código', width: 70 },
     {
       field: 'description',
-      headerName: 'Adicionar ingrediente',
+      headerName: 'Adicionar',
       width: 300,
       renderCell: (params) => (
         <Select
@@ -135,7 +82,49 @@ export function ItensDataGrid() {
     },
   ];
 
-  const addNewRow = () => {
+  //api communication
+  async function loadItensSelect() {
+    const { data } = await api.get('Ingrediente');
+
+    const obj = data.map((item: IGenericItem) => ({
+      id: item.id,
+      description: item.description,
+    }));
+
+    setItensSelect(obj);
+  }
+
+  //grid handling events
+  function handleChange(event: SelectChangeEvent<number>, rowIndex: number) {
+    const selectedId = event.target.value as number;
+    const selectedIngredient = itensSelect.find(
+      (item) => item.id === selectedId
+    );
+
+    const updatedItem = {
+      ...fieldArray.fields[rowIndex],
+      id: selectedIngredient?.id || 0,
+      description: selectedIngredient?.description || '',
+      quantity: 0,
+      selectedItem: selectedId,
+    };
+
+    fieldArray.update(rowIndex, updatedItem);
+
+    setItensDataGridRows((prevRows) =>
+      prevRows.map((row, index) => (index === rowIndex ? updatedItem : row))
+    );
+  }
+
+  function handleProcessRowUpdate(newRow: IItensProps) {
+    const index = itensDataGridRows.length - 1;
+
+    fieldArray.update(index, newRow);
+
+    return newRow;
+  }
+
+  function addNewRow() {
     setItensDataGridRows((prevRows) => [
       ...prevRows,
       {
@@ -145,18 +134,20 @@ export function ItensDataGrid() {
         selectedItem: '',
       },
     ]);
-  };
+  }
 
   const handleKeyDown: GridEventListener<'cellKeyDown'> = (params, event) => {
     if (event.key === 'ArrowDown') {
       const isLastRow =
-        params.id === itensDataGridRows[itensDataGridRows.length - 1].item_id;
+        params.id === itensDataGridRows[itensDataGridRows.length - 1].id;
+
       if (isLastRow && params.id !== 0) {
         addNewRow();
       }
     }
   };
 
+  // form handling events
   function loadDataGridItens() {
     const itens = form.getValues('itens') || [];
 
@@ -168,16 +159,31 @@ export function ItensDataGrid() {
     setItensDataGridRows(updatedItens);
   }
 
+  function handleDeleteSingleItem(id: number) {
+    const indexToRemove = itensDataGridRows.findIndex(
+      (item) => item.item_id === id
+    );
+
+    if (indexToRemove === -1) return;
+
+    fieldArray.remove(indexToRemove);
+
+    setItensDataGridRows((prevRows) =>
+      prevRows.filter((_, index) => index !== indexToRemove)
+    );
+  }
+
   useEffect(() => {
     loadDataGridItens();
     loadItensSelect();
+    addNewRow();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <DataGrid
       rows={itensDataGridRows}
-      columns={ingredientDataGridColumns}
+      columns={itemDataGridColumns}
       initialState={{
         pagination: {
           paginationModel: {
