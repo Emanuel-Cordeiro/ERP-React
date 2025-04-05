@@ -17,7 +17,7 @@ import {
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
-import { ItensDataGrid } from '../../Components/ItensDataGrid';
+import ItensDataGrid from '../../Components/ItensDataGrid';
 
 interface RecipeIngredientProps {
   id?: number;
@@ -147,6 +147,7 @@ export default function Recipes() {
   async function handleRegisterRecipe() {
     try {
       const formData = { ...getValues() };
+
       const itens = formData?.itens?.map((i) => ({
         ...i,
         ingredient_id: i.id,
@@ -204,6 +205,7 @@ export default function Recipes() {
         <Controller
           name="description"
           control={control}
+          rules={{ required: 'A descrição é obrigatória.' }}
           render={({ field: { value, onChange } }) => (
             <Input
               id="description"

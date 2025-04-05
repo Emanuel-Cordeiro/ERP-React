@@ -17,7 +17,11 @@ interface IItensProps {
   selectedItem?: number | '';
 }
 
-export function ItensDataGrid() {
+interface ItensDataGridProps {
+  type: 'order' | 'recipe';
+}
+
+export default function ItensDataGrid({ type }: ItensDataGridProps) {
   const [itensDataGridRows, setItensDataGridRows] = useState<IItensProps[]>([]);
   const [itensSelect, setItensSelect] = useState<IGenericItem[]>([]);
   const form = useFormContext<RecipeProps>();
@@ -84,7 +88,9 @@ export function ItensDataGrid() {
 
   //api communication
   async function loadItensSelect() {
-    const { data } = await api.get('Ingrediente');
+    const endpoint = type === 'order' ? 'Pedido' : 'Ingrediente';
+
+    const { data } = await api.get(endpoint);
 
     const obj = data.map((item: IGenericItem) => ({
       id: item.id,

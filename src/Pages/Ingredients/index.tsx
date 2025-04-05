@@ -192,6 +192,7 @@ export default function Ingredients() {
         <Controller
           name="description"
           control={control}
+          rules={{ required: 'A descrição é obrigatória.' }}
           render={({ field: { value, onChange } }) => (
             <Input
               id="description"
@@ -207,6 +208,7 @@ export default function Ingredients() {
         <Controller
           name="unity"
           control={control}
+          rules={{ required: 'A unidade é obrigatória.' }}
           render={({ field: { value, onChange } }) => (
             <Input
               id="unity"
@@ -222,6 +224,7 @@ export default function Ingredients() {
         <Controller
           name="cost"
           control={control}
+          rules={{ required: 'O custo é obrigatório.' }}
           render={({ field: { value, onChange } }) => (
             <Input
               id="cost"
