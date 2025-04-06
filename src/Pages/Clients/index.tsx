@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Controller, useForm } from 'react-hook-form';
 
@@ -9,6 +9,11 @@ import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
 import ToastMessage from '../../Components/ToastMessage';
 import DialogComponent from '../../Components/DialogComponent';
+import {
+  GridContainer,
+  PageContainer,
+  PageTitle,
+} from '../../Components/StyleComponents';
 
 interface IClientProps {
   id?: number;
@@ -42,17 +47,20 @@ export default function Clients() {
   const { handleSubmit, control, reset, getValues, formState } =
     useForm<IClientProps>({ defaultValues: formDefault });
 
-  const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
-    { field: 'id', headerName: 'Código', width: 70 },
-    { field: 'name', headerName: 'Nome', width: 300 },
-    { field: 'phone', headerName: 'Telefone', width: 130 },
-    { field: 'address', headerName: 'Endereço', width: 200 },
-    { field: 'number', headerName: 'Nr', width: 70 },
-    { field: 'district', headerName: 'Bairro', width: 150 },
-    { field: 'city', headerName: 'Cidade', width: 150 },
-  ];
+  const dataGridColumns = useMemo<GridColDef<(typeof dataGridRows)[number]>[]>(
+    () => [
+      { field: 'id', headerName: 'Código', width: 70 },
+      { field: 'name', headerName: 'Nome', width: 300 },
+      { field: 'phone', headerName: 'Telefone', width: 130 },
+      { field: 'address', headerName: 'Endereço', width: 200 },
+      { field: 'number', headerName: 'Nr', width: 70 },
+      { field: 'district', headerName: 'Bairro', width: 150 },
+      { field: 'city', headerName: 'Cidade', width: 150 },
+    ],
+    []
+  );
 
-  const loadClients = useCallback(async () => {
+  const loadClients = useCallback(async (id?: number) => {
     try {
       const { data } = await api.get('Cliente');
 
@@ -69,7 +77,13 @@ export default function Clients() {
 
       setDataGridRows(rows);
 
-      reset({ ...rows[0], client_id: rows[0].id });
+      let clientGridIndex = rows.findIndex(
+        (item: IClientProps) => item.client_id === id
+      );
+
+      if (clientGridIndex === -1) clientGridIndex = 0;
+
+      reset({ ...rows[clientGridIndex], client_id: rows[clientGridIndex].id });
     } catch (error) {
       showErrorMessage(String(error));
     }
@@ -88,10 +102,10 @@ export default function Clients() {
         formData = { ...getValues(), client_id: getValues('client_id') };
       }
 
-      const { status } = await api.post('Cliente', formData);
+      const { status, data } = await api.post('Cliente', formData);
 
       if (status === 200 || status === 201) {
-        loadClients();
+        loadClients(data.id);
         setIsEditable(false);
         setIsNewRecord(false);
       }
@@ -115,9 +129,7 @@ export default function Clients() {
           (client) => client.client_id === getValues('client_id')
         );
 
-        reset({
-          ...updatedList[selectedClientIndex - 1],
-        });
+        reset(updatedList[selectedClientIndex - 1] || formDefault);
       }
 
       setShouldDeleteClient(false);
@@ -135,6 +147,10 @@ export default function Clients() {
 
   function handleCancelEdit() {
     if (isNewRecord) {
+      reset({
+        ...dataGridRows[0],
+      });
+    } else {
       const selectedClientIndex = dataGridRows.findIndex(
         (client) => client.client_id === getValues('client_id')
       );
@@ -156,8 +172,8 @@ export default function Clients() {
   }
 
   function showErrorMessage(error: unknown) {
-    setToastErrorMessage(String(error));
-
+    const msg = error instanceof Error ? error.message : String(error);
+    setToastErrorMessage(msg);
     setTimeout(() => setToastErrorMessage(''), 5000);
   }
 
@@ -172,19 +188,14 @@ export default function Clients() {
       loadClients();
       didFetch.current = true;
     }
-  }, [loadClients]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
-      <h1 style={{ marginLeft: '250px', color: 'var(--font)' }}>Clientes</h1>
+      <PageTitle>Clientes</PageTitle>
 
-      <div
-        style={{
-          marginLeft: '250px',
-          display: 'flex',
-          flex: 1,
-        }}
-      >
+      <PageContainer>
         <Controller
           name="id"
           control={control}
@@ -231,14 +242,9 @@ export default function Clients() {
             />
           )}
         />
-      </div>
-      <div
-        style={{
-          marginLeft: '250px',
-          display: 'flex',
-          flex: 1,
-        }}
-      >
+      </PageContainer>
+
+      <PageContainer>
         <Controller
           name="address"
           control={control}
@@ -302,31 +308,19 @@ export default function Clients() {
             />
           )}
         />
-      </div>
+      </PageContainer>
 
       {isEditable ? (
-        <div
-          style={{
-            marginLeft: '250px',
-            display: 'flex',
-            flex: 1,
-          }}
-        >
+        <PageContainer>
           <ButtonForm
             title="Gravar"
             handleFunction={handleSubmit(handleRegisterClient, handleFormError)}
           />
 
           <ButtonForm title="Cancelar" handleFunction={handleCancelEdit} />
-        </div>
+        </PageContainer>
       ) : (
-        <div
-          style={{
-            marginLeft: '250px',
-            display: 'flex',
-            flex: 1,
-          }}
-        >
+        <PageContainer>
           <ButtonForm title="Incluir" handleFunction={handleAddClient} />
 
           <ButtonForm
@@ -338,17 +332,10 @@ export default function Clients() {
             title="Excluir"
             handleFunction={() => setShouldDeleteClient(true)}
           />
-        </div>
+        </PageContainer>
       )}
 
-      <div
-        style={{
-          marginLeft: '250px',
-          display: 'flex',
-          flex: 1,
-          marginTop: '20px',
-        }}
-      >
+      <GridContainer>
         <DataGrid
           rows={dataGridRows}
           columns={dataGridColumns}
@@ -387,7 +374,7 @@ export default function Clients() {
           state={shouldDeleteClient}
           setState={setShouldDeleteClient}
         />
-      </div>
+      </GridContainer>
     </>
   );
 }
