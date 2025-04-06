@@ -9,6 +9,11 @@ import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
 import ToastMessage from '../../Components/ToastMessage';
 import DialogComponent from '../../Components/DialogComponent';
+import {
+  GridContainer,
+  PageContainer,
+  PageTitle,
+} from '../../Components/StyleComponents';
 
 interface IIngredientProps {
   id?: number;
@@ -28,13 +33,13 @@ const formDefault = {
 };
 
 export default function Ingredients() {
-  const { control, getValues, reset, handleSubmit, formState } =
-    useForm<IIngredientProps>({});
   const [isEditable, setIsEditable] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
   const [toastErrorMessage, setToastErrorMessage] = useState('');
   const [dataGridRows, setDataGridRows] = useState<IIngredientProps[]>([]);
+  const { control, getValues, reset, handleSubmit, formState } =
+    useForm<IIngredientProps>({});
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
     { field: 'id', headerName: 'Código', width: 70 },
@@ -55,8 +60,9 @@ export default function Ingredients() {
   }
 
   function showErrorMessage(error: unknown) {
-    setToastErrorMessage(String(error));
+    const msg = error instanceof Error ? error.message : String(error);
 
+    setToastErrorMessage(msg);
     setTimeout(() => setToastErrorMessage(''), 5000);
   }
 
@@ -75,7 +81,7 @@ export default function Ingredients() {
 
   function handleCancelEdit() {
     const selectedIngredientIndex = dataGridRows.findIndex(
-      (ingredient) => ingredient.id === getValues('id')
+      (ingredient) => ingredient.ingredient_id === getValues('ingredient_id')
     );
 
     reset({
@@ -86,12 +92,13 @@ export default function Ingredients() {
     setIsNewRecord(false);
   }
 
-  async function loadIngredients() {
+  async function loadIngredients(id?: number) {
     try {
       const { data } = await api.get('Ingrediente');
 
       const rows = data.map((ingredient: IIngredientProps) => ({
-        id: ingredient.id,
+        id: ingredient.ingredient_id,
+        ingredient_id: ingredient.ingredient_id,
         description: ingredient.description,
         unity: ingredient.unity,
         cost: ingredient.cost,
@@ -100,28 +107,37 @@ export default function Ingredients() {
 
       setDataGridRows(rows);
 
-      reset(rows[0]);
+      let ingredientIndexInGrid = rows.findIndex(
+        (item: IIngredientProps) => item.ingredient_id === id
+      );
+
+      if (ingredientIndexInGrid === -1) ingredientIndexInGrid = 0;
+
+      reset({
+        ...rows[ingredientIndexInGrid],
+        ingredient_id: rows[ingredientIndexInGrid].ingredient_id,
+      });
     } catch (error) {
       showErrorMessage(String(error));
     }
   }
 
   async function handleRegisterIngredient() {
+    let formData;
+
+    if (isNewRecord) {
+      formData = { ...getValues() };
+
+      delete formData.ingredient_id;
+    } else {
+      formData = { ...getValues(), ingredient_id: getValues('id') };
+    }
+
     try {
-      let formData;
-
-      if (isNewRecord) {
-        formData = { ...getValues() };
-
-        delete formData.ingredient_id;
-      } else {
-        formData = { ...getValues, ingredient_id: getValues('id') };
-      }
-
-      const { status } = await api.post('Ingrediente', formData);
+      const { status, data } = await api.post('Ingrediente', formData);
 
       if (status === 200 || status === 201) {
-        loadIngredients();
+        loadIngredients(data.id);
         setIsEditable(false);
         setIsNewRecord(false);
       }
@@ -131,7 +147,7 @@ export default function Ingredients() {
   }
 
   async function handleDeleteIngredient() {
-    const id = getValues('id');
+    const id = getValues('ingredient_id');
 
     try {
       const res = await api.delete(`Ingrediente/${id}`);
@@ -142,7 +158,8 @@ export default function Ingredients() {
         setDataGridRows(updatedList);
 
         const selectedIngredientIndex = dataGridRows.findIndex(
-          (ingredient) => ingredient.id === getValues('id')
+          (ingredient) =>
+            ingredient.ingredient_id === getValues('ingredient_id')
         );
 
         reset({
@@ -163,17 +180,9 @@ export default function Ingredients() {
 
   return (
     <>
-      <h1 style={{ marginLeft: '250px', color: 'var(--font)' }}>
-        Ingredientes
-      </h1>
+      <PageTitle>Ingredientes</PageTitle>
 
-      <div
-        style={{
-          marginLeft: '250px',
-          display: 'flex',
-          flex: 1,
-        }}
-      >
+      <PageContainer>
         <Controller
           name="id"
           control={control}
@@ -224,7 +233,7 @@ export default function Ingredients() {
         <Controller
           name="cost"
           control={control}
-          rules={{ required: 'O custo é obrigatório.' }}
+          rules={{ min: { value: 1, message: 'Custo não pode ser zero' } }}
           render={({ field: { value, onChange } }) => (
             <Input
               id="cost"
@@ -251,15 +260,9 @@ export default function Ingredients() {
             />
           )}
         />
-      </div>
+      </PageContainer>
 
-      <div
-        style={{
-          marginLeft: '250px',
-          display: 'flex',
-          flex: 1,
-        }}
-      >
+      <PageContainer>
         {isEditable ? (
           <>
             <ButtonForm
@@ -287,16 +290,9 @@ export default function Ingredients() {
             />
           </>
         )}
-      </div>
+      </PageContainer>
 
-      <div
-        style={{
-          marginLeft: '250px',
-          display: 'flex',
-          flex: 1,
-          marginTop: '20px',
-        }}
-      >
+      <GridContainer>
         <DataGrid
           rows={dataGridRows}
           columns={dataGridColumns}
@@ -324,7 +320,7 @@ export default function Ingredients() {
             },
           }}
         />
-      </div>
+      </GridContainer>
 
       <ToastMessage message={toastErrorMessage} />
 
