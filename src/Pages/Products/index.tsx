@@ -7,8 +7,13 @@ import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
-import DialogComponent from '../../Components/DialogComponent';
 import ToastMessage from '../../Components/ToastMessage';
+import DialogComponent from '../../Components/DialogComponent';
+import {
+  GridContainer,
+  PageContainer,
+  PageTitle,
+} from '../../Components/StyleComponents';
 
 interface IProductProps {
   id?: number;
@@ -30,13 +35,13 @@ const formDefault = {
 };
 
 export default function Products() {
-  const { control, getValues, reset, handleSubmit, formState } =
-    useForm<IProductProps>({ defaultValues: formDefault });
   const [isEditable, setIsEditable] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
   const [toastErrorMessage, setToastErrorMessage] = useState('');
   const [dataGridRows, setDataGridRows] = useState<IProductProps[]>([]);
+  const { control, getValues, reset, handleSubmit, formState } =
+    useForm<IProductProps>({ defaultValues: formDefault });
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
     { field: 'id', headerName: 'Código', width: 70 },
@@ -53,7 +58,7 @@ export default function Products() {
     reset({ ...selectedItem });
   }
 
-  async function loadProducts() {
+  async function loadProducts(id?: number) {
     try {
       const { data } = await api.get('Produto');
 
@@ -69,7 +74,16 @@ export default function Products() {
 
       setDataGridRows(rows);
 
-      reset({ ...rows[0], product_id: rows[0].product_id });
+      let productIndexInGrid = rows.findIndex(
+        (item: IProductProps) => item.product_id === id
+      );
+
+      if (productIndexInGrid === -1) productIndexInGrid = 0;
+
+      reset({
+        ...rows[productIndexInGrid],
+        product_id: rows[productIndexInGrid].product_id,
+      });
     } catch (error) {
       showErrorMessage(String(error));
     }
@@ -102,21 +116,21 @@ export default function Products() {
   }
 
   async function handleRegisterProduct() {
+    let formData;
+
+    if (isNewRecord) {
+      formData = { ...getValues() };
+
+      delete formData.product_id;
+    } else {
+      formData = { ...getValues(), product_id: getValues('product_id') };
+    }
+
     try {
-      let formData;
-
-      if (isNewRecord) {
-        formData = { ...getValues() };
-
-        delete formData.product_id;
-      } else {
-        formData = { ...getValues(), product_id: getValues('product_id') };
-      }
-
-      const { status } = await api.post('Produto', formData);
+      const { status, data } = await api.post('Produto', formData);
 
       if (status === 200 || status === 201) {
-        loadProducts();
+        loadProducts(data.id);
         setIsEditable(false);
         setIsNewRecord(false);
       }
@@ -164,15 +178,9 @@ export default function Products() {
 
   return (
     <>
-      <h1 style={{ marginLeft: '250px', color: 'var(--font)' }}>Produtos</h1>
+      <PageTitle>Produtos</PageTitle>
 
-      <div
-        style={{
-          marginLeft: '250px',
-          display: 'flex',
-          flex: 1,
-        }}
-      >
+      <PageContainer>
         <Controller
           name="id"
           control={control}
@@ -207,6 +215,7 @@ export default function Products() {
         <Controller
           name="price"
           control={control}
+          rules={{ min: { value: 1, message: 'Preço não pode ser zero' } }}
           render={({ field: { value, onChange } }) => (
             <Input
               id="price"
@@ -238,7 +247,7 @@ export default function Products() {
         <Controller
           name="cost"
           control={control}
-          rules={{ required: 'O custo é obrigatório.' }}
+          rules={{ min: { value: 1, message: 'Custo não pode ser zero' } }}
           render={({ field: { value, onChange } }) => (
             <Input
               id="cost"
@@ -254,6 +263,7 @@ export default function Products() {
         <Controller
           name="stock"
           control={control}
+          rules={{ min: { value: 1, message: 'Estoque não pode ser zero' } }}
           render={({ field: { value, onChange } }) => (
             <Input
               id="stock"
@@ -265,15 +275,9 @@ export default function Products() {
             />
           )}
         />
-      </div>
+      </PageContainer>
 
-      <div
-        style={{
-          marginLeft: '250px',
-          display: 'flex',
-          flex: 1,
-        }}
-      >
+      <PageContainer>
         {isEditable ? (
           <>
             <ButtonForm
@@ -301,16 +305,9 @@ export default function Products() {
             />
           </>
         )}
-      </div>
+      </PageContainer>
 
-      <div
-        style={{
-          marginLeft: '250px',
-          display: 'flex',
-          flex: 1,
-          marginTop: '20px',
-        }}
-      >
+      <GridContainer>
         <DataGrid
           rows={dataGridRows}
           columns={dataGridColumns}
@@ -338,7 +335,7 @@ export default function Products() {
             },
           }}
         />
-      </div>
+      </GridContainer>
 
       <DialogComponent
         title="Cadastro de Produtos"
