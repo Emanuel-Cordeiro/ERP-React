@@ -15,7 +15,7 @@ import {
   PageTitle,
 } from '../../Components/StyleComponents';
 
-interface IClientProps {
+export interface IClientProps {
   id?: number;
   client_id?: number;
   name: string;
@@ -65,8 +65,8 @@ export default function Clients() {
       const { data } = await api.get('Cliente');
 
       const rows = data.map((client: IClientProps) => ({
-        id: client.id,
-        client_id: client.id,
+        id: client.client_id,
+        client_id: client.client_id,
         name: client.name,
         number: client.number,
         address: client.address,

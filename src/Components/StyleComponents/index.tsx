@@ -1,7 +1,9 @@
 import { ChildrenProps } from '../../Types/common';
 
 export const PageContainer = ({ children }: ChildrenProps) => (
-  <div style={{ marginLeft: '250px', flex: 1 }}>{children}</div>
+  <div style={{ marginLeft: '250px', flex: 1, display: 'flex' }}>
+    {children}
+  </div>
 );
 
 export const GridContainer = ({ children }: ChildrenProps) => (
