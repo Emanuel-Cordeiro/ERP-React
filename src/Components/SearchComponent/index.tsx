@@ -26,7 +26,11 @@ export default function SearchComponent({
     async function fetchClients() {
       try {
         const { data } = await api.get('Cliente');
-        const names = data.map((client: IClientProps) => client.name);
+
+        const names = data.map(
+          (client: IClientProps) => client.client_id + ' - ' + client.name
+        );
+
         setOptions(names);
       } catch (err) {
         console.error('Erro ao buscar clientes:', err);

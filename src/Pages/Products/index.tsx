@@ -131,7 +131,7 @@ export default function Products() {
     } else {
       formData = { ...getValues(), product_id: getValues('product_id') };
     }
-    console.log(formData);
+
     try {
       setIsLoadingButton(true);
 

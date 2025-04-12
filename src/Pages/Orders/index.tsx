@@ -16,7 +16,7 @@ import ButtonForm from '../../Components/ButtonForm';
 import ToastMessage from '../../Components/ToastMessage';
 import DialogComponent from '../../Components/DialogComponent';
 import SearchComponent from '../../Components/SearchComponent';
-import OrderItensDataGrid from '../../Components/OrderItensDataGrid';
+import OrderItensDataGrid from '../../Components/OrderItemsDataGrid';
 import {
   GridContainer,
   PageContainer,
@@ -65,6 +65,7 @@ export default function Orders() {
 
   const [isEditable, setIsEditable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingButton, setIsLoadingButton] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
   const [toastErrorMessage, setToastErrorMessage] = useState('');
@@ -81,7 +82,7 @@ export default function Orders() {
     },
   ];
 
-  async function loadOrders() {
+  async function loadOrders(id?: number) {
     try {
       setIsLoading(true);
 
@@ -91,7 +92,7 @@ export default function Orders() {
         id: item.order_id,
         order_id: item.order_id,
         client_id: item.client_id,
-        client_name: item.client_name,
+        client_name: item.client_id + ' - ' + item.client_name,
         delivery_date: new Date(item.delivery_date).toLocaleDateString(
           'pt-BR',
           {
@@ -107,12 +108,13 @@ export default function Orders() {
 
       setDataGridRows(rows);
 
-      if (rows.length > 0) {
-        reset({
-          ...formDefault,
-          ...rows[0],
-        });
-      }
+      let orderGridIndex = rows.findIndex(
+        (item: IOrderProps) => item.order_id === id
+      );
+
+      if (orderGridIndex === -1) orderGridIndex = 0;
+
+      reset({ ...rows[orderGridIndex], client_id: rows[orderGridIndex].id });
     } catch (error) {
       showErrorMessage(error);
     } finally {
@@ -122,6 +124,8 @@ export default function Orders() {
 
   async function handleDeleteOrder() {
     try {
+      setIsLoadingButton(true);
+
       const id = getValues('order_id');
 
       const { status } = await api.delete(`Pedido/${id}`);
@@ -143,6 +147,8 @@ export default function Orders() {
       setShouldDeleteItem(false);
     } catch (error) {
       showErrorMessage(error);
+    } finally {
+      setIsLoadingButton(false);
     }
   }
 
@@ -150,6 +156,8 @@ export default function Orders() {
     const id = getValues('order_id');
 
     try {
+      setIsLoadingButton(true);
+
       const { data } = await api.get(`Pedido/${id}`);
 
       const itens = data.itens;
@@ -161,11 +169,15 @@ export default function Orders() {
       setIsEditable(true);
     } catch (error) {
       showErrorMessage(error);
+    } finally {
+      setIsLoadingButton(false);
     }
   }
 
   async function handleRegisterOrder() {
     try {
+      setIsLoadingButton(true);
+
       let formData;
 
       if (isNewRecord) {
@@ -176,10 +188,31 @@ export default function Orders() {
         formData = getValues();
       }
 
+      formData.client_id = parseInt(
+        formData.client_name.substring(0, formData.client_name.indexOf('-')),
+        10
+      );
+
+      formData.itens = getValues('itens').map((item, index) => ({
+        product_id: item.product_id,
+        order_item_order: index + 1,
+        quantity: item.quantity,
+        price: item.price,
+        observation: item.observation,
+        description: item.description,
+      }));
+
       const { data, status } = await api.post('Pedido', formData);
-      console.log(data + status);
+
+      if (status === 201) {
+        loadOrders(data.id);
+      }
     } catch (error) {
       showErrorMessage(error);
+    } finally {
+      setIsNewRecord(false);
+      setIsEditable(false);
+      setIsLoadingButton(false);
     }
   }
 
@@ -321,6 +354,7 @@ export default function Orders() {
           <ButtonForm
             title="Gravar"
             handleFunction={handleSubmit(handleRegisterOrder, handleFormError)}
+            loading={isLoadingButton}
           />
 
           <ButtonForm title="Cancelar" handleFunction={handleCancelEdit} />
@@ -337,6 +371,7 @@ export default function Orders() {
           <ButtonForm
             title="Excluir"
             handleFunction={() => setShouldDeleteItem(true)}
+            loading={isLoadingButton && shouldDeleteItem}
           />
         </PageContainer>
       )}
