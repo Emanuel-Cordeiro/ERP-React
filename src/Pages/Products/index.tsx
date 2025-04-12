@@ -37,6 +37,7 @@ const formDefault = {
 export default function Products() {
   const [isEditable, setIsEditable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingButton, setIsLoadingButton] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
   const [toastErrorMessage, setToastErrorMessage] = useState('');
@@ -130,8 +131,10 @@ export default function Products() {
     } else {
       formData = { ...getValues(), product_id: getValues('product_id') };
     }
-
+    console.log(formData);
     try {
+      setIsLoadingButton(true);
+
       const { status, data } = await api.post('Produto', formData);
 
       if (status === 200 || status === 201) {
@@ -141,6 +144,8 @@ export default function Products() {
       }
     } catch (error) {
       showErrorMessage(error);
+    } finally {
+      setIsLoadingButton(false);
     }
   }
 
@@ -291,6 +296,7 @@ export default function Products() {
                 handleRegisterProduct,
                 handleFormError
               )}
+              loading={isLoadingButton}
             />
 
             <ButtonForm title="Cancelar" handleFunction={handleCancelEdit} />
@@ -307,6 +313,7 @@ export default function Products() {
             <ButtonForm
               title="Excluir"
               handleFunction={() => setShouldDeleteItem(true)}
+              loading={isLoadingButton}
             />
           </>
         )}
