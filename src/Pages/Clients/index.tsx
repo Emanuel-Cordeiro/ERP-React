@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Controller, useForm } from 'react-hook-form';
 
@@ -39,11 +39,11 @@ const formDefault = {
 export default function Clients() {
   const [isEditable, setIsEditable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingButton, setIsLoadingButton] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteClient, setShouldDeleteClient] = useState(false);
   const [toastErrorMessage, setToastErrorMessage] = useState('');
   const [dataGridRows, setDataGridRows] = useState<IClientProps[]>([]);
-  const didFetch = useRef(false);
 
   const { handleSubmit, control, reset, getValues, formState } =
     useForm<IClientProps>({ defaultValues: formDefault });
@@ -96,6 +96,8 @@ export default function Clients() {
 
   async function handleRegisterClient() {
     try {
+      setIsLoadingButton(true);
+
       let formData;
 
       if (isNewRecord) {
@@ -115,6 +117,8 @@ export default function Clients() {
       }
     } catch (error) {
       showErrorMessage(error);
+    } finally {
+      setIsLoadingButton(false);
     }
   }
 
@@ -122,6 +126,8 @@ export default function Clients() {
     const id = getValues('client_id');
 
     try {
+      setIsLoadingButton(true);
+
       const res = await api.delete(`Cliente/${id}`);
 
       if (res.status === 200) {
@@ -139,6 +145,8 @@ export default function Clients() {
       setShouldDeleteClient(false);
     } catch (error) {
       showErrorMessage(error);
+    } finally {
+      setIsLoadingButton(false);
     }
   }
 
@@ -188,10 +196,7 @@ export default function Clients() {
   }
 
   useEffect(() => {
-    if (!didFetch.current) {
-      loadClients();
-      didFetch.current = true;
-    }
+    loadClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -319,6 +324,7 @@ export default function Clients() {
           <ButtonForm
             title="Gravar"
             handleFunction={handleSubmit(handleRegisterClient, handleFormError)}
+            loading={isLoadingButton}
           />
 
           <ButtonForm title="Cancelar" handleFunction={handleCancelEdit} />
@@ -335,6 +341,7 @@ export default function Clients() {
           <ButtonForm
             title="Excluir"
             handleFunction={() => setShouldDeleteClient(true)}
+            loading={isLoadingButton}
           />
         </PageContainer>
       )}
