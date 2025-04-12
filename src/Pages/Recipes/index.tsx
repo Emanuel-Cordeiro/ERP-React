@@ -44,6 +44,7 @@ export default function Recipes() {
   const { control, getValues, reset, handleSubmit, formState } = form;
 
   const [isEditable, setIsEditable] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
   const [snackBarErrorMessage, setSnackBarErrorMessage] = useState('');
@@ -105,17 +106,25 @@ export default function Recipes() {
 
   //api communication
   async function loadRecipes() {
-    const { data } = await api.get('Receita');
+    try {
+      setIsLoading(true);
 
-    const rows = data.map((item: RecipeProps) => ({
-      id: item.id,
-      description: item.description,
-      cost: item.cost,
-    }));
+      const { data } = await api.get('Receita');
 
-    setDataGridRows(rows);
+      const rows = data.map((item: RecipeProps) => ({
+        id: item.id,
+        description: item.description,
+        cost: item.cost,
+      }));
 
-    reset(rows[0]);
+      setDataGridRows(rows);
+
+      reset(rows[0]);
+    } catch (error) {
+      showErrorMessage(String(error));
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function handleDeleteRecipe() {
@@ -281,6 +290,7 @@ export default function Recipes() {
           <DataGrid
             rows={dataGridRows}
             columns={dataGridColumns}
+            loading={isLoading}
             initialState={{
               pagination: {
                 paginationModel: {

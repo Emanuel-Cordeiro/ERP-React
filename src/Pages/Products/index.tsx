@@ -36,6 +36,7 @@ const formDefault = {
 
 export default function Products() {
   const [isEditable, setIsEditable] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
   const [toastErrorMessage, setToastErrorMessage] = useState('');
@@ -60,6 +61,8 @@ export default function Products() {
 
   async function loadProducts(id?: number) {
     try {
+      setIsLoading(true);
+
       const { data } = await api.get('Produto');
 
       const rows = data.map((item: IProductProps) => ({
@@ -86,6 +89,8 @@ export default function Products() {
       });
     } catch (error) {
       showErrorMessage(String(error));
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -311,6 +316,7 @@ export default function Products() {
         <DataGrid
           rows={dataGridRows}
           columns={dataGridColumns}
+          loading={isLoading}
           initialState={{
             pagination: {
               paginationModel: {

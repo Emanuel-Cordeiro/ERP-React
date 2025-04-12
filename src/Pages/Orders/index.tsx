@@ -64,6 +64,7 @@ export default function Orders() {
   const fieldArray = useFieldArray({ control: form.control, name: 'itens' });
 
   const [isEditable, setIsEditable] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
   const [toastErrorMessage, setToastErrorMessage] = useState('');
@@ -82,6 +83,8 @@ export default function Orders() {
 
   async function loadOrders() {
     try {
+      setIsLoading(true);
+
       const { data } = await api.get('Pedido');
 
       const rows = data.map((item: IOrderProps) => ({
@@ -112,6 +115,8 @@ export default function Orders() {
       }
     } catch (error) {
       showErrorMessage(error);
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -343,6 +348,7 @@ export default function Orders() {
           <DataGrid
             rows={dataGridRows}
             columns={dataGridColumns}
+            loading={isLoading}
             initialState={{
               pagination: {
                 paginationModel: {

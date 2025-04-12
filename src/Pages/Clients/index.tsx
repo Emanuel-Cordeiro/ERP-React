@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Controller, useForm } from 'react-hook-form';
 
@@ -38,6 +38,7 @@ const formDefault = {
 
 export default function Clients() {
   const [isEditable, setIsEditable] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteClient, setShouldDeleteClient] = useState(false);
   const [toastErrorMessage, setToastErrorMessage] = useState('');
@@ -60,8 +61,10 @@ export default function Clients() {
     []
   );
 
-  const loadClients = useCallback(async (id?: number) => {
+  async function loadClients(id?: number) {
     try {
+      setIsLoading(true);
+
       const { data } = await api.get('Cliente');
 
       const rows = data.map((client: IClientProps) => ({
@@ -86,9 +89,10 @@ export default function Clients() {
       reset({ ...rows[clientGridIndex], client_id: rows[clientGridIndex].id });
     } catch (error) {
       showErrorMessage(String(error));
+    } finally {
+      setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }
 
   async function handleRegisterClient() {
     try {
@@ -339,6 +343,7 @@ export default function Clients() {
         <DataGrid
           rows={dataGridRows}
           columns={dataGridColumns}
+          loading={isLoading}
           initialState={{
             pagination: {
               paginationModel: {

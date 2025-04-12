@@ -34,12 +34,13 @@ const formDefault = {
 
 export default function Ingredients() {
   const [isEditable, setIsEditable] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
   const [toastErrorMessage, setToastErrorMessage] = useState('');
   const [dataGridRows, setDataGridRows] = useState<IIngredientProps[]>([]);
   const { control, getValues, reset, handleSubmit, formState } =
-    useForm<IIngredientProps>({});
+    useForm<IIngredientProps>({ defaultValues: formDefault });
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
     { field: 'id', headerName: 'Código', width: 70 },
@@ -94,6 +95,8 @@ export default function Ingredients() {
 
   async function loadIngredients(id?: number) {
     try {
+      setIsLoading(true);
+
       const { data } = await api.get('Ingrediente');
 
       const rows = data.map((ingredient: IIngredientProps) => ({
@@ -119,6 +122,8 @@ export default function Ingredients() {
       });
     } catch (error) {
       showErrorMessage(String(error));
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -296,6 +301,7 @@ export default function Ingredients() {
         <DataGrid
           rows={dataGridRows}
           columns={dataGridColumns}
+          loading={isLoading}
           initialState={{
             pagination: {
               paginationModel: {
