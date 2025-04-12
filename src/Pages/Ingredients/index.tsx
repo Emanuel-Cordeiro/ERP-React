@@ -35,6 +35,7 @@ const formDefault = {
 export default function Ingredients() {
   const [isEditable, setIsEditable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingButton, setIsLoadingButton] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
   const [toastErrorMessage, setToastErrorMessage] = useState('');
@@ -139,6 +140,8 @@ export default function Ingredients() {
     }
 
     try {
+      setIsLoadingButton(true);
+
       const { status, data } = await api.post('Ingrediente', formData);
 
       if (status === 200 || status === 201) {
@@ -148,6 +151,8 @@ export default function Ingredients() {
       }
     } catch (error) {
       showErrorMessage(error);
+    } finally {
+      setIsLoadingButton(false);
     }
   }
 
@@ -155,6 +160,8 @@ export default function Ingredients() {
     const id = getValues('ingredient_id');
 
     try {
+      setIsLoadingButton(true);
+
       const res = await api.delete(`Ingrediente/${id}`);
 
       if (res.status === 201) {
@@ -175,6 +182,8 @@ export default function Ingredients() {
       setShouldDeleteItem(false);
     } catch (error) {
       showErrorMessage(error);
+    } finally {
+      setIsLoadingButton(false);
     }
   }
 
@@ -276,6 +285,7 @@ export default function Ingredients() {
                 handleRegisterIngredient,
                 handleFormError
               )}
+              loading={isLoadingButton}
             />
 
             <ButtonForm title="Cancelar" handleFunction={handleCancelEdit} />
@@ -292,6 +302,7 @@ export default function Ingredients() {
             <ButtonForm
               title="Excluir"
               handleFunction={() => setShouldDeleteItem(true)}
+              loading={isLoadingButton}
             />
           </>
         )}
