@@ -24,6 +24,7 @@ import {
 } from '../../Components/StyleComponents';
 
 interface IOrdemItemProps {
+  id?: number;
   order_item_order: number;
   product_id: number;
   quantity: number;
@@ -201,6 +202,13 @@ export default function Orders() {
         observation: item.observation,
         description: item.description,
       }));
+
+      const formatedDate = getValues('delivery_date').replace(
+        /(\d{2})\/(\d{2})\/(\d{4})/,
+        '$3/$2/$1'
+      );
+
+      formData.delivery_date = formatedDate;
 
       const { data, status } = await api.post('Pedido', formData);
 

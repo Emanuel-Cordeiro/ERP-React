@@ -7,7 +7,6 @@ import { Button, MenuItem, Select, SelectChangeEvent } from '@mui/material';
 
 import api from '../../Services/api';
 import { IOrderProps } from '../../Pages/Orders';
-import { IGenericItem } from '../../Types/common';
 
 interface IItensProps {
   id?: number;
@@ -21,9 +20,17 @@ interface IItensProps {
   selectedItem?: number | '';
 }
 
+interface ISelectItemProps {
+  id?: number;
+  product_id: number;
+  description: string;
+  price: number;
+  quantity: number;
+}
+
 export default function OrderItemsDataGrid() {
   const [itemRows, setItemsRows] = useState<IItensProps[]>([]);
-  const [selectOptions, setSelectOptions] = useState<IGenericItem[]>([]);
+  const [selectOptions, setSelectOptions] = useState<ISelectItemProps[]>([]);
   const form = useFormContext<IOrderProps>();
   const fieldArray = useFieldArray({ control: form.control, name: 'itens' });
 
@@ -31,7 +38,7 @@ export default function OrderItemsDataGrid() {
     { field: 'id', headerName: 'Código', width: 70 },
     {
       field: 'description',
-      headerName: 'Adicionar',
+      headerName: 'Produto',
       width: 300,
       renderCell: (params) => (
         <Select
@@ -100,13 +107,16 @@ export default function OrderItemsDataGrid() {
 
   //api communication
   async function loadItensSelect() {
+    //TESTE: Preenche corretamente os produtos
     try {
       const { data } = await api.get('Produto');
 
-      const obj = data.map((item: IGenericItem, index: number) => ({
+      const obj = data.map((item: ISelectItemProps, index: number) => ({
         id: index,
         product_id: item.id,
         description: item.description,
+        price: item.price,
+        quantity: item.quantity,
       }));
 
       setSelectOptions(obj);
@@ -117,6 +127,7 @@ export default function OrderItemsDataGrid() {
 
   //grid handling events
   const handleChange = useCallback(
+    //TESTE: Incluir um produto coloca ele no grid corretamente
     (event: SelectChangeEvent<number>, rowIndex: number) => {
       const selectedId = event.target.value as number;
       const selectedIngredient = selectOptions.find(
@@ -124,15 +135,18 @@ export default function OrderItemsDataGrid() {
       );
 
       const updatedItem = {
-        ...fieldArray.fields[rowIndex],
-        id: selectedIngredient?.id || 0,
+        id: rowIndex + 1,
+        selectedItem: selectedId,
         product_id: selectedIngredient?.product_id || 0,
         description: selectedIngredient?.description || '',
-        quantity: 0,
-        selectedItem: selectedId,
+        price: selectedIngredient?.price || 0,
+        quantity: 1,
+        observation: '',
+        order_item_order: rowIndex,
       };
 
-      fieldArray.update(rowIndex, updatedItem);
+      fieldArray.remove(rowIndex);
+      fieldArray.insert(rowIndex, updatedItem);
 
       setItemsRows((prevRows) =>
         prevRows.map((row, index) => (index === rowIndex ? updatedItem : row))
@@ -144,13 +158,16 @@ export default function OrderItemsDataGrid() {
   const handleProcessRowUpdate = useCallback(
     (newRow: IItensProps) => {
       const index = itemRows.length - 1;
+      console.log(newRow);
       fieldArray.update(index, newRow);
+
       return newRow;
     },
     [fieldArray, itemRows]
   );
 
   const addNewRow = useCallback(() => {
+    // TESTE: Incluir gera uma nova linha OK
     setItemsRows((prevRows) => [
       ...prevRows,
       {
@@ -192,11 +209,8 @@ export default function OrderItemsDataGrid() {
   const handleDeleteSingleItem = useCallback(
     (id: number) => {
       const indexToRemove = itemRows.findIndex((item) => item.id === id);
-
       if (indexToRemove === -1) return;
-
       fieldArray.remove(indexToRemove);
-
       setItemsRows((prevRows) =>
         prevRows.filter((_, index) => index !== indexToRemove)
       );
