@@ -61,7 +61,7 @@ const formDefault = {
 
 export default function Orders() {
   const form = useForm<IOrderProps>({ defaultValues: formDefault });
-  const { control, getValues, reset, handleSubmit, formState } = form;
+  const { control, getValues, setValue, reset, handleSubmit, formState } = form;
   const fieldArray = useFieldArray({ control: form.control, name: 'itens' });
 
   const [isEditable, setIsEditable] = useState(false);
@@ -158,6 +158,7 @@ export default function Orders() {
 
     try {
       setIsLoadingButton(true);
+      setValue('itens', []);
 
       const { data } = await api.get(`Pedido/${id}`);
 
@@ -209,6 +210,7 @@ export default function Orders() {
       );
 
       formData.delivery_date = formatedDate;
+      console.log(formData);
 
       const { data, status } = await api.post('Pedido', formData);
 
