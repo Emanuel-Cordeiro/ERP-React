@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useFieldArray, useFormContext } from 'react-hook-form';
 
@@ -7,28 +7,30 @@ import { Button, MenuItem, Select, SelectChangeEvent } from '@mui/material';
 
 import api from '../../Services/api';
 import { RecipeProps } from '../../Pages/Recipes';
-import { IGenericItem } from '../../Types/common';
 
 interface IItensProps {
-  id?: number;
-  item_id?: number;
+  id: number;
+  ingredient_id?: number;
   description: string;
   quantity: number;
   selectedItem?: number | '';
 }
 
-interface ItensDataGridProps {
-  type: 'order' | 'recipe';
+interface ISelectItemProps {
+  id?: number;
+  ingredient_id: number;
+  description: string;
+  quantity: number;
 }
 
-export default function ItensDataGrid({ type }: ItensDataGridProps) {
+export default function ItensDataGrid() {
   const [itensDataGridRows, setItensDataGridRows] = useState<IItensProps[]>([]);
-  const [itensSelect, setItensSelect] = useState<IGenericItem[]>([]);
+  const [itensSelect, setItensSelect] = useState<ISelectItemProps[]>([]);
   const form = useFormContext<RecipeProps>();
   const fieldArray = useFieldArray({ control: form.control, name: 'itens' });
 
   const itemDataGridColumns: GridColDef<IItensProps>[] = [
-    { field: 'id', headerName: 'Código', width: 70 },
+    { field: 'ingredient_id', headerName: 'Código', width: 70 },
     {
       field: 'description',
       headerName: 'Adicionar',
@@ -88,12 +90,11 @@ export default function ItensDataGrid({ type }: ItensDataGridProps) {
 
   //api communication
   async function loadItensSelect() {
-    const endpoint = type === 'order' ? 'Pedido' : 'Ingrediente';
+    const { data } = await api.get('Ingrediente');
 
-    const { data } = await api.get(endpoint);
-
-    const obj = data.map((item: IGenericItem) => ({
-      id: item.id,
+    const obj = data.map((item: ISelectItemProps) => ({
+      id: item.ingredient_id,
+      ingredient_id: item.ingredient_id,
       description: item.description,
     }));
 
@@ -103,51 +104,81 @@ export default function ItensDataGrid({ type }: ItensDataGridProps) {
   //grid handling events
   function handleChange(event: SelectChangeEvent<number>, rowIndex: number) {
     const selectedId = event.target.value as number;
-    const selectedIngredient = itensSelect.find(
-      (item) => item.id === selectedId
+    const existingIndex = itensDataGridRows.findIndex(
+      (item) => item.ingredient_id === selectedId
     );
 
-    const updatedItem = {
-      ...fieldArray.fields[rowIndex],
-      id: selectedIngredient?.id || 0,
-      description: selectedIngredient?.description || '',
-      quantity: 0,
-      selectedItem: selectedId,
-    };
+    if (existingIndex !== -1) {
+      const updatedRows = [...itensDataGridRows];
 
-    fieldArray.update(rowIndex, updatedItem);
+      updatedRows[existingIndex].quantity =
+        Number(updatedRows[existingIndex].quantity) + 1;
 
-    setItensDataGridRows((prevRows) =>
-      prevRows.map((row, index) => (index === rowIndex ? updatedItem : row))
-    );
+      setItensDataGridRows(updatedRows);
+
+      fieldArray.update(existingIndex, updatedRows[existingIndex]);
+    } else {
+      const selectedIngredient = itensSelect.find(
+        (item) => item.id === selectedId
+      );
+
+      const updatedItem = {
+        ...fieldArray.fields[rowIndex],
+        id: rowIndex + 1,
+        ingredient_id: selectedIngredient?.ingredient_id || 0,
+        description: selectedIngredient?.description || '',
+        quantity: 1,
+        selectedItem: selectedId,
+      };
+
+      fieldArray.remove(rowIndex);
+      fieldArray.insert(rowIndex, updatedItem);
+
+      setItensDataGridRows((prevRows) =>
+        prevRows.map((row, index) => (index === rowIndex ? updatedItem : row))
+      );
+    }
   }
 
-  function handleProcessRowUpdate(newRow: IItensProps) {
-    const index = itensDataGridRows.length - 1;
+  const handleProcessRowUpdate = useCallback(
+    (newRow: IItensProps) => {
+      fieldArray.update(newRow.id - 1, newRow);
 
-    fieldArray.update(index, newRow);
+      const formItens = form.getValues('itens').map((item, index) => ({
+        id: index + 1,
+        ingredient_id: item.ingredient_id,
+        description: item.description,
+        quantity: item.quantity,
+        selectedItem: item.ingredient_id,
+      }));
 
-    return newRow;
-  }
+      setItensDataGridRows(formItens);
+      return newRow;
+    },
+    [fieldArray, form]
+  );
 
-  function addNewRow() {
+  const addNewRow = useCallback(() => {
     setItensDataGridRows((prevRows) => [
       ...prevRows,
       {
-        id: 0,
+        id: prevRows.length + 1 || 0,
         description: '',
-        quantity: 0,
+        quantity: 1,
         selectedItem: '',
       },
     ]);
-  }
+  }, []);
 
   const handleKeyDown: GridEventListener<'cellKeyDown'> = (params, event) => {
     if (event.key === 'ArrowDown') {
       const isLastRow =
         params.id === itensDataGridRows[itensDataGridRows.length - 1].id;
 
-      if (isLastRow && params.id !== 0) {
+      if (
+        isLastRow &&
+        itensDataGridRows[itensDataGridRows.length - 1].ingredient_id
+      ) {
         addNewRow();
       }
     }
@@ -157,18 +188,17 @@ export default function ItensDataGrid({ type }: ItensDataGridProps) {
   function loadDataGridItens() {
     const itens = form.getValues('itens') || [];
 
-    const updatedItens = itens.map((item) => ({
+    const updatedItens = itens.map((item, index) => ({
       ...item,
-      selectedItem: item.id,
+      id: index + 1,
+      selectedItem: item.ingredient_id,
     }));
 
     setItensDataGridRows(updatedItens);
   }
 
   function handleDeleteSingleItem(id: number) {
-    const indexToRemove = itensDataGridRows.findIndex(
-      (item) => item.item_id === id
-    );
+    const indexToRemove = itensDataGridRows.findIndex((item) => item.id === id);
 
     if (indexToRemove === -1) return;
 
@@ -180,8 +210,8 @@ export default function ItensDataGrid({ type }: ItensDataGridProps) {
   }
 
   useEffect(() => {
-    loadDataGridItens();
     loadItensSelect();
+    loadDataGridItens();
     addNewRow();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

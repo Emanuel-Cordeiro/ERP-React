@@ -20,20 +20,22 @@ import ButtonForm from '../../Components/ButtonForm';
 import ItensDataGrid from '../../Components/ItensDataGrid';
 
 interface RecipeIngredientProps {
-  id?: number;
+  ingredient_id?: number;
   description: string;
   quantity: number;
 }
 
 export interface RecipeProps {
   id?: number;
+  recipe_id: number;
   description: string;
   cost: number;
-  itens?: Array<RecipeIngredientProps>;
+  itens: Array<RecipeIngredientProps>;
 }
 
 const formDefault = {
   id: 0,
+  recipe_id: 0,
   description: '',
   cost: 0,
   itens: [],
@@ -45,20 +47,21 @@ export default function Recipes() {
 
   const [isEditable, setIsEditable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingButton, setIsLoadingButton] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
   const [snackBarErrorMessage, setSnackBarErrorMessage] = useState('');
   const [dataGridRows, setDataGridRows] = useState<RecipeProps[]>([]);
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
-    { field: 'id', headerName: 'Código', width: 70 },
+    { field: 'recipe_id', headerName: 'Código', width: 70 },
     { field: 'description', headerName: 'Descrição', width: 300 },
     { field: 'cost', headerName: 'Custo', width: 100, editable: true },
   ];
 
   // form handling
   async function handleEditRecipe() {
-    const id = getValues('id');
+    const id = getValues('recipe_id');
     const { data } = await api.get(`Receita/${id}`);
 
     reset(data);
@@ -111,8 +114,9 @@ export default function Recipes() {
 
       const { data } = await api.get('Receita');
 
-      const rows = data.map((item: RecipeProps) => ({
-        id: item.id,
+      const rows = data.map((item: RecipeProps, index: number) => ({
+        id: index + 1,
+        recipe_id: item.recipe_id,
         description: item.description,
         cost: item.cost,
       }));
@@ -128,23 +132,27 @@ export default function Recipes() {
   }
 
   async function handleDeleteRecipe() {
-    const id = getValues('id');
+    const id = getValues('recipe_id');
 
     try {
       const res = await api.delete(`Receita/${id}`);
 
       if (res.status === 201) {
-        const updatedList = dataGridRows.filter((item) => item.id !== id);
+        let selectedItemIndex = dataGridRows.findIndex(
+          (item) => item.recipe_id === id
+        );
 
-        setDataGridRows(updatedList);
+        if (selectedItemIndex !== -1) selectedItemIndex = 0;
 
-        const selectedItemIndex = dataGridRows.findIndex(
-          (item) => item.id === getValues('id')
+        const updatedList = dataGridRows.filter(
+          (item) => item.recipe_id !== id
         );
 
         reset({
           ...updatedList[selectedItemIndex - 1],
         });
+
+        setDataGridRows(updatedList);
       }
 
       setShouldDeleteItem(false);
@@ -155,20 +163,19 @@ export default function Recipes() {
 
   async function handleRegisterRecipe() {
     try {
-      const formData = { ...getValues() };
+      setIsLoadingButton(true);
 
-      const itens = formData?.itens?.map((i) => ({
-        ...i,
-        ingredient_id: i.id,
-      }));
+      let formData;
 
-      if (itens) delete formData.itens;
+      if (isNewRecord) {
+        formData = getValues();
 
-      const finalForm = { ...formData, itens: itens };
+        delete formData.id;
+      } else {
+        formData = getValues();
+      }
 
-      if (isNewRecord) delete finalForm.id;
-
-      const { status } = await api.post('Receita', finalForm);
+      const { status } = await api.post('Receita', formData);
 
       if (status === 200 || status === 201) {
         loadRecipes();
@@ -177,6 +184,10 @@ export default function Recipes() {
       }
     } catch (error) {
       showErrorMessage(error);
+    } finally {
+      setIsNewRecord(false);
+      setIsEditable(false);
+      setIsLoadingButton(false);
     }
   }
 
@@ -197,7 +208,7 @@ export default function Recipes() {
         }}
       >
         <Controller
-          name="id"
+          name="recipe_id"
           control={control}
           render={({ field: { value, onChange } }) => (
             <Input
@@ -258,6 +269,7 @@ export default function Recipes() {
                 handleRegisterRecipe,
                 handleFormError
               )}
+              loading={isLoadingButton}
             />
 
             <ButtonForm title="Cancelar" handleFunction={handleCancelEdit} />
@@ -271,6 +283,7 @@ export default function Recipes() {
             <ButtonForm
               title="Excluir"
               handleFunction={() => setShouldDeleteItem(true)}
+              loading={isLoadingButton}
             />
           </>
         )}

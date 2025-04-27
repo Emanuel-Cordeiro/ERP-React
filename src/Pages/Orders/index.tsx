@@ -210,7 +210,6 @@ export default function Orders() {
       );
 
       formData.delivery_date = formatedDate;
-      console.log(formData);
 
       const { data, status } = await api.post('Pedido', formData);
 

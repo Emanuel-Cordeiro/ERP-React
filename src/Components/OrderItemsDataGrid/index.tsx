@@ -148,7 +148,7 @@ export default function OrderItemsDataGrid() {
       const selectedIngredient = selectOptions.find(
         (item) => item.id === selectedId
       );
-      console.log('hdnlech');
+
       const updatedItem = {
         id: rowIndex + 1,
         selectedItem: selectedId,
@@ -180,7 +180,7 @@ export default function OrderItemsDataGrid() {
         ...item,
         id: index,
       }));
-      console.log(newItens);
+
       setItemsRows(newItens);
 
       return newRow;
