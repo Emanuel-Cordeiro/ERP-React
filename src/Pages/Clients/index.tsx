@@ -7,8 +7,7 @@ import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
-import ToastMessage from '../../Components/ToastMessage';
-import DialogComponent from '../../Components/DialogComponent';
+import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
 import {
   GridContainer,
   PageContainer,
@@ -41,12 +40,17 @@ export default function Clients() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingButton, setIsLoadingButton] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
-  const [shouldDeleteClient, setShouldDeleteClient] = useState(false);
-  const [toastErrorMessage, setToastErrorMessage] = useState('');
   const [dataGridRows, setDataGridRows] = useState<IClientProps[]>([]);
 
   const { handleSubmit, control, reset, getValues, formState } =
     useForm<IClientProps>({ defaultValues: formDefault });
+
+  const {
+    showToastMessage,
+    setDialogInfo,
+    setDialogHandleButtonAction,
+    setShowDialog,
+  } = useMainLayoutContext();
 
   const dataGridColumns = useMemo<GridColDef<(typeof dataGridRows)[number]>[]>(
     () => [
@@ -88,7 +92,7 @@ export default function Clients() {
 
       reset({ ...rows[clientGridIndex], client_id: rows[clientGridIndex].id });
     } catch (error) {
-      showErrorMessage(String(error));
+      showToastMessage('Erro: ' + String(error));
     } finally {
       setIsLoading(false);
     }
@@ -116,7 +120,7 @@ export default function Clients() {
         setIsNewRecord(false);
       }
     } catch (error) {
-      showErrorMessage(error);
+      showToastMessage('Erro: ' + error);
     } finally {
       setIsLoadingButton(false);
     }
@@ -141,13 +145,23 @@ export default function Clients() {
 
         reset(updatedList[selectedClientIndex - 1] || formDefault);
       }
-
-      setShouldDeleteClient(false);
     } catch (error) {
-      showErrorMessage(error);
+      showToastMessage('Erro: ' + error);
     } finally {
       setIsLoadingButton(false);
+      setShowDialog(false);
     }
+  }
+
+  function handleAskDeleteClient() {
+    setDialogInfo({
+      dialogTitle: 'Cadastro de Clientes',
+      dialogText: 'Excluir esse cliente?',
+      dialogButtonText: 'Excluir',
+    });
+
+    setDialogHandleButtonAction(() => handleDeleteClient);
+    setShowDialog(true);
   }
 
   function handleAddClient() {
@@ -183,16 +197,10 @@ export default function Clients() {
     reset({ ...selectedClient });
   }
 
-  function showErrorMessage(error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    setToastErrorMessage(msg);
-    setTimeout(() => setToastErrorMessage(''), 5000);
-  }
-
   function handleFormError() {
     const error = Object.values(formState.errors)[0];
 
-    showErrorMessage(String(error.message));
+    showToastMessage('Erro: ' + String(error.message));
   }
 
   useEffect(() => {
@@ -340,7 +348,7 @@ export default function Clients() {
 
           <ButtonForm
             title="Excluir"
-            handleFunction={() => setShouldDeleteClient(true)}
+            handleFunction={handleAskDeleteClient}
             loading={isLoadingButton}
           />
         </PageContainer>
@@ -374,17 +382,6 @@ export default function Clients() {
               color: 'var(--font)',
             },
           }}
-        />
-
-        <ToastMessage message={toastErrorMessage} />
-
-        <DialogComponent
-          title="Cadastro de Clientes"
-          text="Excluir esse cliente?"
-          handleButtonAction={handleDeleteClient}
-          handleButtonText="Excluir"
-          state={shouldDeleteClient}
-          setState={setShouldDeleteClient}
         />
       </GridContainer>
     </>

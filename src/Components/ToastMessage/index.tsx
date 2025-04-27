@@ -13,7 +13,7 @@ export default function ToastMessage({ message }: IToastMessageProps) {
       TransitionComponent={Slide}
       ContentProps={{
         sx: {
-          backgroundColor: 'red',
+          backgroundColor: message.includes('Erro:') ? 'red' : 'green',
           flex: 1,
         },
       }}

@@ -6,11 +6,14 @@ import AppRoutes from './Routes';
 import { ThemeProvider } from './Provider/themeProvider';
 
 import './index.css';
+import MainLayoutProvider from './Provider/mainLayoutProvider';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
-      <AppRoutes />
+      <MainLayoutProvider>
+        <AppRoutes />
+      </MainLayoutProvider>
     </ThemeProvider>
   </StrictMode>
 );
