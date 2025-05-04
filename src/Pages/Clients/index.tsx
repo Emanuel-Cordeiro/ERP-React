@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Controller, useForm } from 'react-hook-form';
 
@@ -7,10 +7,14 @@ import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
-import ToastMessage from '../../Components/ToastMessage';
-import DialogComponent from '../../Components/DialogComponent';
+import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
+import {
+  GridContainer,
+  PageContainer,
+  PageTitle,
+} from '../../Components/StyleComponents';
 
-interface IClientProps {
+export interface ClientProps {
   id?: number;
   client_id?: number;
   name: string;
@@ -32,33 +36,46 @@ const formDefault = {
 };
 
 export default function Clients() {
+  const [isLoading, setIsLoading] = useState(false);
   const [isEditable, setIsEditable] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
-  const [shouldDeleteClient, setShouldDeleteClient] = useState(false);
-  const [toastErrorMessage, setToastErrorMessage] = useState('');
-  const [dataGridRows, setDataGridRows] = useState<IClientProps[]>([]);
-  const didFetch = useRef(false);
+  const [dataGridRows, setDataGridRows] = useState<ClientProps[]>([]);
+  const [isLoadingButton, setIsLoadingButton] = useState(false);
+
+  const {
+    showToastMessage,
+    setDialogInfo,
+    setDialogHandleButtonAction,
+    setShowDialog,
+    handleFormError,
+  } = useMainLayoutContext();
 
   const { handleSubmit, control, reset, getValues, formState } =
-    useForm<IClientProps>({ defaultValues: formDefault });
+    useForm<ClientProps>({ defaultValues: formDefault });
 
-  const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
-    { field: 'id', headerName: 'Código', width: 70 },
-    { field: 'name', headerName: 'Nome', width: 300 },
-    { field: 'phone', headerName: 'Telefone', width: 130 },
-    { field: 'address', headerName: 'Endereço', width: 200 },
-    { field: 'number', headerName: 'Nr', width: 70 },
-    { field: 'district', headerName: 'Bairro', width: 150 },
-    { field: 'city', headerName: 'Cidade', width: 150 },
-  ];
+  const dataGridColumns = useMemo<GridColDef<(typeof dataGridRows)[number]>[]>(
+    () => [
+      { field: 'id', headerName: 'Código', width: 70 },
+      { field: 'name', headerName: 'Nome', width: 300 },
+      { field: 'phone', headerName: 'Telefone', width: 130 },
+      { field: 'address', headerName: 'Endereço', width: 200 },
+      { field: 'number', headerName: 'Nr', width: 70 },
+      { field: 'district', headerName: 'Bairro', width: 150 },
+      { field: 'city', headerName: 'Cidade', width: 150 },
+    ],
+    []
+  );
 
-  const loadClients = useCallback(async () => {
+  // API communication
+  async function loadClients(id?: number) {
     try {
+      setIsLoading(true);
+
       const { data } = await api.get('Cliente');
 
-      const rows = data.map((client: IClientProps) => ({
-        id: client.id,
-        client_id: client.id,
+      const rows = data.map((client: ClientProps) => ({
+        id: client.client_id,
+        client_id: client.client_id,
         name: client.name,
         number: client.number,
         address: client.address,
@@ -69,15 +86,24 @@ export default function Clients() {
 
       setDataGridRows(rows);
 
-      reset({ ...rows[0], client_id: rows[0].id });
+      let clientGridIndex = rows.findIndex(
+        (item: ClientProps) => item.client_id === id
+      );
+
+      if (clientGridIndex === -1) clientGridIndex = 0;
+
+      reset({ ...rows[clientGridIndex], client_id: rows[clientGridIndex].id });
     } catch (error) {
-      showErrorMessage(String(error));
+      showToastMessage('Erro: ' + error);
+    } finally {
+      setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }
 
   async function handleRegisterClient() {
     try {
+      setIsLoadingButton(true);
+
       let formData;
 
       if (isNewRecord) {
@@ -88,15 +114,18 @@ export default function Clients() {
         formData = { ...getValues(), client_id: getValues('client_id') };
       }
 
-      const { status } = await api.post('Cliente', formData);
+      const { status, data } = await api.post('Cliente', formData);
 
       if (status === 200 || status === 201) {
-        loadClients();
+        loadClients(data.id);
         setIsEditable(false);
         setIsNewRecord(false);
       }
     } catch (error) {
-      showErrorMessage(error);
+      showToastMessage('Erro: ' + error);
+    } finally {
+      setIsLoadingButton(false);
+      showToastMessage('Cadastro realizado com sucesso.');
     }
   }
 
@@ -104,6 +133,8 @@ export default function Clients() {
     const id = getValues('client_id');
 
     try {
+      setIsLoadingButton(true);
+
       const res = await api.delete(`Cliente/${id}`);
 
       if (res.status === 200) {
@@ -115,15 +146,27 @@ export default function Clients() {
           (client) => client.client_id === getValues('client_id')
         );
 
-        reset({
-          ...updatedList[selectedClientIndex - 1],
-        });
+        reset(updatedList[selectedClientIndex - 1] || formDefault);
       }
-
-      setShouldDeleteClient(false);
     } catch (error) {
-      showErrorMessage(error);
+      showToastMessage('Erro: ' + error);
+    } finally {
+      setIsLoadingButton(false);
+      setShowDialog(false);
+      showToastMessage('Exclusão realizada com sucesso.');
     }
+  }
+
+  // Form handling in general
+  function handleAskDeleteClient() {
+    setDialogInfo({
+      dialogTitle: 'Cadastro de Clientes',
+      dialogText: 'Excluir esse cliente?',
+      dialogButtonText: 'Excluir',
+    });
+
+    setDialogHandleButtonAction(() => handleDeleteClient);
+    setShowDialog(true);
   }
 
   function handleAddClient() {
@@ -135,6 +178,10 @@ export default function Clients() {
 
   function handleCancelEdit() {
     if (isNewRecord) {
+      reset({
+        ...dataGridRows[0],
+      });
+    } else {
       const selectedClientIndex = dataGridRows.findIndex(
         (client) => client.client_id === getValues('client_id')
       );
@@ -145,6 +192,7 @@ export default function Clients() {
     }
 
     setIsEditable(false);
+    setIsNewRecord(false);
   }
 
   function handleRowClick(params: GridRowParams) {
@@ -155,36 +203,16 @@ export default function Clients() {
     reset({ ...selectedClient });
   }
 
-  function showErrorMessage(error: unknown) {
-    setToastErrorMessage(String(error));
-
-    setTimeout(() => setToastErrorMessage(''), 5000);
-  }
-
-  function handleFormError() {
-    const error = Object.values(formState.errors)[0];
-
-    showErrorMessage(String(error.message));
-  }
-
   useEffect(() => {
-    if (!didFetch.current) {
-      loadClients();
-      didFetch.current = true;
-    }
-  }, [loadClients]);
+    loadClients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
-      <h1 style={{ marginLeft: '250px', color: 'var(--font)' }}>Clientes</h1>
+      <PageTitle>Clientes</PageTitle>
 
-      <div
-        style={{
-          marginLeft: '250px',
-          display: 'flex',
-          flex: 1,
-        }}
-      >
+      <PageContainer>
         <Controller
           name="id"
           control={control}
@@ -231,14 +259,9 @@ export default function Clients() {
             />
           )}
         />
-      </div>
-      <div
-        style={{
-          marginLeft: '250px',
-          display: 'flex',
-          flex: 1,
-        }}
-      >
+      </PageContainer>
+
+      <PageContainer>
         <Controller
           name="address"
           control={control}
@@ -302,31 +325,22 @@ export default function Clients() {
             />
           )}
         />
-      </div>
+      </PageContainer>
 
       {isEditable ? (
-        <div
-          style={{
-            marginLeft: '250px',
-            display: 'flex',
-            flex: 1,
-          }}
-        >
+        <PageContainer>
           <ButtonForm
             title="Gravar"
-            handleFunction={handleSubmit(handleRegisterClient, handleFormError)}
+            handleFunction={handleSubmit(handleRegisterClient, () =>
+              handleFormError(formState)
+            )}
+            loading={isLoadingButton}
           />
 
           <ButtonForm title="Cancelar" handleFunction={handleCancelEdit} />
-        </div>
+        </PageContainer>
       ) : (
-        <div
-          style={{
-            marginLeft: '250px',
-            display: 'flex',
-            flex: 1,
-          }}
-        >
+        <PageContainer>
           <ButtonForm title="Incluir" handleFunction={handleAddClient} />
 
           <ButtonForm
@@ -336,22 +350,17 @@ export default function Clients() {
 
           <ButtonForm
             title="Excluir"
-            handleFunction={() => setShouldDeleteClient(true)}
+            handleFunction={handleAskDeleteClient}
+            loading={isLoadingButton}
           />
-        </div>
+        </PageContainer>
       )}
 
-      <div
-        style={{
-          marginLeft: '250px',
-          display: 'flex',
-          flex: 1,
-          marginTop: '20px',
-        }}
-      >
+      <GridContainer>
         <DataGrid
           rows={dataGridRows}
           columns={dataGridColumns}
+          loading={isLoading}
           initialState={{
             pagination: {
               paginationModel: {
@@ -376,18 +385,7 @@ export default function Clients() {
             },
           }}
         />
-
-        <ToastMessage message={toastErrorMessage} />
-
-        <DialogComponent
-          title="Cadastro de Clientes"
-          text="Excluir esse cliente?"
-          handleButtonAction={handleDeleteClient}
-          handleButtonText="Excluir"
-          state={shouldDeleteClient}
-          setState={setShouldDeleteClient}
-        />
-      </div>
+      </GridContainer>
     </>
   );
 }

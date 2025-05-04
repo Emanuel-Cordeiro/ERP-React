@@ -3,66 +3,170 @@ import { useEffect, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Slide,
-  Snackbar,
-} from '@mui/material';
 
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
-import { ItensDataGrid } from '../../Components/ItensDataGrid';
+import ItensDataGrid from '../../Components/ItensDataGrid';
+import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
 
 interface RecipeIngredientProps {
-  id?: number;
+  ingredient_id?: number;
   description: string;
   quantity: number;
 }
 
 export interface RecipeProps {
   id?: number;
+  recipe_id: number;
   description: string;
   cost: number;
-  itens?: Array<RecipeIngredientProps>;
+  itens: Array<RecipeIngredientProps>;
 }
 
 const formDefault = {
   id: 0,
+  recipe_id: 0,
   description: '',
   cost: 0,
   itens: [],
 };
 
 export default function Recipes() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [isEditable, setIsEditable] = useState(false);
+  const [isNewRecord, setIsNewRecord] = useState(false);
+  const [dataGridRows, setDataGridRows] = useState<RecipeProps[]>([]);
+  const [isLoadingButton, setIsLoadingButton] = useState(false);
+
+  const {
+    showToastMessage,
+    setDialogInfo,
+    setDialogHandleButtonAction,
+    setShowDialog,
+    handleFormError,
+  } = useMainLayoutContext();
+
   const form = useForm<RecipeProps>({ defaultValues: formDefault });
   const { control, getValues, reset, handleSubmit, formState } = form;
 
-  const [isEditable, setIsEditable] = useState(false);
-  const [isNewRecord, setIsNewRecord] = useState(false);
-  const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
-  const [snackBarErrorMessage, setSnackBarErrorMessage] = useState('');
-  const [dataGridRows, setDataGridRows] = useState<RecipeProps[]>([]);
-
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
-    { field: 'id', headerName: 'Código', width: 70 },
+    { field: 'recipe_id', headerName: 'Código', width: 70 },
     { field: 'description', headerName: 'Descrição', width: 300 },
     { field: 'cost', headerName: 'Custo', width: 100, editable: true },
   ];
 
-  // form handling
+  // API Communication
+  async function loadRecipes() {
+    try {
+      setIsLoading(true);
+
+      const { data } = await api.get('Receita');
+
+      const rows = data.map((item: RecipeProps, index: number) => ({
+        id: index + 1,
+        recipe_id: item.recipe_id,
+        description: item.description,
+        cost: item.cost,
+      }));
+
+      setDataGridRows(rows);
+
+      reset(rows[0]);
+    } catch (error) {
+      showToastMessage('Erro: ' + error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleRegisterRecipe() {
+    try {
+      setIsLoadingButton(true);
+
+      let formData;
+
+      if (isNewRecord) {
+        formData = getValues();
+
+        delete formData.id;
+      } else {
+        formData = getValues();
+      }
+
+      const { status } = await api.post('Receita', formData);
+
+      if (status === 200 || status === 201) {
+        loadRecipes();
+        setIsEditable(false);
+        setIsNewRecord(false);
+      }
+    } catch (error) {
+      showToastMessage('Erro: ' + error);
+    } finally {
+      setIsLoadingButton(false);
+      showToastMessage('Cadastro realizado com sucesso.');
+    }
+  }
+
+  async function handleDeleteRecipe() {
+    const id = getValues('recipe_id');
+
+    try {
+      const res = await api.delete(`Receita/${id}`);
+
+      if (res.status === 201) {
+        let selectedItemIndex = dataGridRows.findIndex(
+          (item) => item.recipe_id === id
+        );
+
+        if (selectedItemIndex !== -1) selectedItemIndex = 0;
+
+        const updatedList = dataGridRows.filter(
+          (item) => item.recipe_id !== id
+        );
+
+        reset({
+          ...updatedList[selectedItemIndex - 1],
+        });
+
+        setDataGridRows(updatedList);
+      }
+    } catch (error) {
+      showToastMessage('Erro: ' + error);
+    } finally {
+      setIsLoadingButton(false);
+      setShowDialog(false);
+      showToastMessage('Exclusão realizada com sucesso.');
+    }
+  }
+
   async function handleEditRecipe() {
-    const id = getValues('id');
-    const { data } = await api.get(`Receita/${id}`);
+    const id = getValues('recipe_id');
 
-    reset(data);
+    try {
+      const { data } = await api.get(`Receita/${id}`);
 
-    setIsEditable(true);
+      reset(data);
+
+      setIsEditable(true);
+    } catch (error) {
+      showToastMessage('Erro: ' + error);
+    } finally {
+      setIsLoadingButton(false);
+    }
+  }
+
+  // Form handling
+  function handleAskDeleteRecipe() {
+    setDialogInfo({
+      dialogTitle: 'Cadastro de Receitas',
+      dialogText: 'Excluir esse Receita?',
+      dialogButtonText: 'Excluir',
+    });
+
+    setDialogHandleButtonAction(() => handleDeleteRecipe);
+    setShowDialog(true);
   }
 
   function handleAddRecipe() {
@@ -73,101 +177,28 @@ export default function Recipes() {
   }
 
   function handleCancelEdit() {
-    const selectedItemIndex = dataGridRows.findIndex(
-      (item) => item.id === getValues('id')
-    );
+    if (isNewRecord) {
+      reset({
+        ...dataGridRows[0],
+      });
+    } else {
+      const selectedItemIndex = dataGridRows.findIndex(
+        (item) => item.id === getValues('id')
+      );
 
-    reset({
-      ...dataGridRows[selectedItemIndex],
-    });
+      reset({
+        ...dataGridRows[selectedItemIndex],
+      });
+    }
 
     setIsEditable(false);
     setIsNewRecord(false);
-  }
-
-  function showErrorMessage(error: unknown) {
-    setSnackBarErrorMessage(String(error));
-
-    setTimeout(() => setSnackBarErrorMessage(''), 5000);
-  }
-
-  function handleFormError() {
-    const error = Object.values(formState.errors)[0];
-
-    showErrorMessage(String(error!.message));
   }
 
   function handleRowClick(params: GridRowParams) {
     const selectedItem = dataGridRows.find((item) => item.id === params.row.id);
 
     reset({ ...selectedItem });
-  }
-
-  //api communication
-  async function loadRecipes() {
-    const { data } = await api.get('Receita');
-
-    const rows = data.map((item: RecipeProps) => ({
-      id: item.id,
-      description: item.description,
-      cost: item.cost,
-    }));
-
-    setDataGridRows(rows);
-
-    reset(rows[0]);
-  }
-
-  async function handleDeleteRecipe() {
-    const id = getValues('id');
-
-    try {
-      const res = await api.delete(`Receita/${id}`);
-
-      if (res.status === 201) {
-        const updatedList = dataGridRows.filter((item) => item.id !== id);
-
-        setDataGridRows(updatedList);
-
-        const selectedItemIndex = dataGridRows.findIndex(
-          (item) => item.id === getValues('id')
-        );
-
-        reset({
-          ...updatedList[selectedItemIndex - 1],
-        });
-      }
-
-      setShouldDeleteItem(false);
-    } catch (error) {
-      showErrorMessage(error);
-    }
-  }
-
-  async function handleRegisterRecipe() {
-    try {
-      const formData = { ...getValues() };
-      const itens = formData?.itens?.map((i) => ({
-        ...i,
-        ingredient_id: i.id,
-      }));
-
-      if (itens) delete formData.itens;
-
-      const finalForm = { ...formData, itens: itens };
-
-      if (isNewRecord) delete finalForm.id;
-
-      const { status } = await api.post('Receita', finalForm);
-
-      if (status === 200 || status === 201) {
-        loadRecipes();
-        setIsEditable(false);
-        setIsNewRecord(false);
-      }
-    } catch (error) {
-      showErrorMessage(error);
-    }
   }
 
   useEffect(() => {
@@ -187,7 +218,7 @@ export default function Recipes() {
         }}
       >
         <Controller
-          name="id"
+          name="recipe_id"
           control={control}
           render={({ field: { value, onChange } }) => (
             <Input
@@ -204,6 +235,7 @@ export default function Recipes() {
         <Controller
           name="description"
           control={control}
+          rules={{ required: 'A descrição é obrigatória.' }}
           render={({ field: { value, onChange } }) => (
             <Input
               id="description"
@@ -243,10 +275,10 @@ export default function Recipes() {
           <>
             <ButtonForm
               title="Gravar"
-              handleFunction={handleSubmit(
-                handleRegisterRecipe,
-                handleFormError
+              handleFunction={handleSubmit(handleRegisterRecipe, () =>
+                handleFormError(formState)
               )}
+              loading={isLoadingButton}
             />
 
             <ButtonForm title="Cancelar" handleFunction={handleCancelEdit} />
@@ -259,7 +291,8 @@ export default function Recipes() {
 
             <ButtonForm
               title="Excluir"
-              handleFunction={() => setShouldDeleteItem(true)}
+              handleFunction={handleAskDeleteRecipe}
+              loading={isLoadingButton}
             />
           </>
         )}
@@ -279,6 +312,7 @@ export default function Recipes() {
           <DataGrid
             rows={dataGridRows}
             columns={dataGridColumns}
+            loading={isLoading}
             initialState={{
               pagination: {
                 paginationModel: {
@@ -305,32 +339,6 @@ export default function Recipes() {
           />
         )}
       </div>
-
-      <Snackbar
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        open={snackBarErrorMessage !== ''}
-        message={snackBarErrorMessage}
-        TransitionComponent={Slide}
-        ContentProps={{
-          sx: {
-            backgroundColor: 'red',
-            flex: 1,
-          },
-        }}
-      />
-
-      <Dialog open={shouldDeleteItem}>
-        <DialogTitle>Cadastro de Receitas</DialogTitle>
-        <DialogContent>
-          <DialogContentText>Excluir essa receita?</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShouldDeleteItem(false)}>Não</Button>
-          <Button onClick={handleDeleteRecipe} autoFocus>
-            Excluir
-          </Button>
-        </DialogActions>
-      </Dialog>
     </FormProvider>
   );
 }
