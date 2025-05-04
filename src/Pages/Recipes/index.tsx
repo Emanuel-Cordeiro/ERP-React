@@ -3,21 +3,12 @@ import { useEffect, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Slide,
-  Snackbar,
-} from '@mui/material';
 
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
 import ItensDataGrid from '../../Components/ItensDataGrid';
+import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
 
 interface RecipeIngredientProps {
   ingredient_id?: number;
@@ -42,16 +33,22 @@ const formDefault = {
 };
 
 export default function Recipes() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [isEditable, setIsEditable] = useState(false);
+  const [isNewRecord, setIsNewRecord] = useState(false);
+  const [dataGridRows, setDataGridRows] = useState<RecipeProps[]>([]);
+  const [isLoadingButton, setIsLoadingButton] = useState(false);
+
+  const {
+    showToastMessage,
+    setDialogInfo,
+    setDialogHandleButtonAction,
+    setShowDialog,
+    handleFormError,
+  } = useMainLayoutContext();
+
   const form = useForm<RecipeProps>({ defaultValues: formDefault });
   const { control, getValues, reset, handleSubmit, formState } = form;
-
-  const [isEditable, setIsEditable] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingButton, setIsLoadingButton] = useState(false);
-  const [isNewRecord, setIsNewRecord] = useState(false);
-  const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
-  const [snackBarErrorMessage, setSnackBarErrorMessage] = useState('');
-  const [dataGridRows, setDataGridRows] = useState<RecipeProps[]>([]);
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
     { field: 'recipe_id', headerName: 'Código', width: 70 },
@@ -59,55 +56,7 @@ export default function Recipes() {
     { field: 'cost', headerName: 'Custo', width: 100, editable: true },
   ];
 
-  // form handling
-  async function handleEditRecipe() {
-    const id = getValues('recipe_id');
-    const { data } = await api.get(`Receita/${id}`);
-
-    reset(data);
-
-    setIsEditable(true);
-  }
-
-  function handleAddRecipe() {
-    reset(formDefault);
-
-    setIsNewRecord(true);
-    setIsEditable(true);
-  }
-
-  function handleCancelEdit() {
-    const selectedItemIndex = dataGridRows.findIndex(
-      (item) => item.id === getValues('id')
-    );
-
-    reset({
-      ...dataGridRows[selectedItemIndex],
-    });
-
-    setIsEditable(false);
-    setIsNewRecord(false);
-  }
-
-  function showErrorMessage(error: unknown) {
-    setSnackBarErrorMessage(String(error));
-
-    setTimeout(() => setSnackBarErrorMessage(''), 5000);
-  }
-
-  function handleFormError() {
-    const error = Object.values(formState.errors)[0];
-
-    showErrorMessage(String(error!.message));
-  }
-
-  function handleRowClick(params: GridRowParams) {
-    const selectedItem = dataGridRows.find((item) => item.id === params.row.id);
-
-    reset({ ...selectedItem });
-  }
-
-  //api communication
+  // API Communication
   async function loadRecipes() {
     try {
       setIsLoading(true);
@@ -125,9 +74,38 @@ export default function Recipes() {
 
       reset(rows[0]);
     } catch (error) {
-      showErrorMessage(String(error));
+      showToastMessage('Erro: ' + error);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleRegisterRecipe() {
+    try {
+      setIsLoadingButton(true);
+
+      let formData;
+
+      if (isNewRecord) {
+        formData = getValues();
+
+        delete formData.id;
+      } else {
+        formData = getValues();
+      }
+
+      const { status } = await api.post('Receita', formData);
+
+      if (status === 200 || status === 201) {
+        loadRecipes();
+        setIsEditable(false);
+        setIsNewRecord(false);
+      }
+    } catch (error) {
+      showToastMessage('Erro: ' + error);
+    } finally {
+      setIsLoadingButton(false);
+      showToastMessage('Cadastro realizado com sucesso.');
     }
   }
 
@@ -154,41 +132,73 @@ export default function Recipes() {
 
         setDataGridRows(updatedList);
       }
-
-      setShouldDeleteItem(false);
     } catch (error) {
-      showErrorMessage(error);
+      showToastMessage('Erro: ' + error);
+    } finally {
+      setIsLoadingButton(false);
+      setShowDialog(false);
+      showToastMessage('Exclusão realizada com sucesso.');
     }
   }
 
-  async function handleRegisterRecipe() {
+  async function handleEditRecipe() {
+    const id = getValues('recipe_id');
+
     try {
-      setIsLoadingButton(true);
+      const { data } = await api.get(`Receita/${id}`);
 
-      let formData;
+      reset(data);
 
-      if (isNewRecord) {
-        formData = getValues();
-
-        delete formData.id;
-      } else {
-        formData = getValues();
-      }
-
-      const { status } = await api.post('Receita', formData);
-
-      if (status === 200 || status === 201) {
-        loadRecipes();
-        setIsEditable(false);
-        setIsNewRecord(false);
-      }
+      setIsEditable(true);
     } catch (error) {
-      showErrorMessage(error);
+      showToastMessage('Erro: ' + error);
     } finally {
-      setIsNewRecord(false);
-      setIsEditable(false);
       setIsLoadingButton(false);
     }
+  }
+
+  // Form handling
+  function handleAskDeleteRecipe() {
+    setDialogInfo({
+      dialogTitle: 'Cadastro de Receitas',
+      dialogText: 'Excluir esse Receita?',
+      dialogButtonText: 'Excluir',
+    });
+
+    setDialogHandleButtonAction(() => handleDeleteRecipe);
+    setShowDialog(true);
+  }
+
+  function handleAddRecipe() {
+    reset(formDefault);
+
+    setIsNewRecord(true);
+    setIsEditable(true);
+  }
+
+  function handleCancelEdit() {
+    if (isNewRecord) {
+      reset({
+        ...dataGridRows[0],
+      });
+    } else {
+      const selectedItemIndex = dataGridRows.findIndex(
+        (item) => item.id === getValues('id')
+      );
+
+      reset({
+        ...dataGridRows[selectedItemIndex],
+      });
+    }
+
+    setIsEditable(false);
+    setIsNewRecord(false);
+  }
+
+  function handleRowClick(params: GridRowParams) {
+    const selectedItem = dataGridRows.find((item) => item.id === params.row.id);
+
+    reset({ ...selectedItem });
   }
 
   useEffect(() => {
@@ -265,9 +275,8 @@ export default function Recipes() {
           <>
             <ButtonForm
               title="Gravar"
-              handleFunction={handleSubmit(
-                handleRegisterRecipe,
-                handleFormError
+              handleFunction={handleSubmit(handleRegisterRecipe, () =>
+                handleFormError(formState)
               )}
               loading={isLoadingButton}
             />
@@ -282,7 +291,7 @@ export default function Recipes() {
 
             <ButtonForm
               title="Excluir"
-              handleFunction={() => setShouldDeleteItem(true)}
+              handleFunction={handleAskDeleteRecipe}
               loading={isLoadingButton}
             />
           </>
@@ -330,32 +339,6 @@ export default function Recipes() {
           />
         )}
       </div>
-
-      <Snackbar
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        open={snackBarErrorMessage !== ''}
-        message={snackBarErrorMessage}
-        TransitionComponent={Slide}
-        ContentProps={{
-          sx: {
-            backgroundColor: 'red',
-            flex: 1,
-          },
-        }}
-      />
-
-      <Dialog open={shouldDeleteItem}>
-        <DialogTitle>Cadastro de Receitas</DialogTitle>
-        <DialogContent>
-          <DialogContentText>Excluir essa receita?</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShouldDeleteItem(false)}>Não</Button>
-          <Button onClick={handleDeleteRecipe} autoFocus>
-            Excluir
-          </Button>
-        </DialogActions>
-      </Dialog>
     </FormProvider>
   );
 }

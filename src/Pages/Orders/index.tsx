@@ -13,9 +13,8 @@ import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
-import ToastMessage from '../../Components/ToastMessage';
-import DialogComponent from '../../Components/DialogComponent';
 import SearchComponent from '../../Components/SearchComponent';
+import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
 import OrderItensDataGrid from '../../Components/OrderItemsDataGrid';
 import {
   GridContainer,
@@ -23,7 +22,7 @@ import {
   PageTitle,
 } from '../../Components/StyleComponents';
 
-interface IOrdemItemProps {
+interface OrdemItemProps {
   id?: number;
   order_item_order: number;
   product_id: number;
@@ -33,7 +32,7 @@ interface IOrdemItemProps {
   description: string;
 }
 
-export interface IOrderProps {
+export interface OrderProps {
   id?: number;
   order_id?: number;
   client_id: number;
@@ -41,7 +40,7 @@ export interface IOrderProps {
   delivery_date: string;
   observation: string;
   paid: boolean;
-  itens: Array<IOrdemItemProps>;
+  itens: Array<OrdemItemProps>;
 }
 
 const formDefault = {
@@ -60,17 +59,24 @@ const formDefault = {
 };
 
 export default function Orders() {
-  const form = useForm<IOrderProps>({ defaultValues: formDefault });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isEditable, setIsEditable] = useState(false);
+  const [isNewRecord, setIsNewRecord] = useState(false);
+  const [dataGridRows, setDataGridRows] = useState<OrderProps[]>([]);
+  const [isLoadingButton, setIsLoadingButton] = useState(false);
+  const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
+
+  const {
+    showToastMessage,
+    setDialogInfo,
+    setDialogHandleButtonAction,
+    setShowDialog,
+    handleFormError,
+  } = useMainLayoutContext();
+
+  const form = useForm<OrderProps>({ defaultValues: formDefault });
   const { control, getValues, setValue, reset, handleSubmit, formState } = form;
   const fieldArray = useFieldArray({ control: form.control, name: 'itens' });
-
-  const [isEditable, setIsEditable] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingButton, setIsLoadingButton] = useState(false);
-  const [isNewRecord, setIsNewRecord] = useState(false);
-  const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
-  const [toastErrorMessage, setToastErrorMessage] = useState('');
-  const [dataGridRows, setDataGridRows] = useState<IOrderProps[]>([]);
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
     { field: 'id', headerName: 'Código', width: 70 },
@@ -83,13 +89,14 @@ export default function Orders() {
     },
   ];
 
+  // API Communication
   async function loadOrders(id?: number) {
     try {
       setIsLoading(true);
 
       const { data } = await api.get('Pedido');
 
-      const rows = data.map((item: IOrderProps) => ({
+      const rows = data.map((item: OrderProps) => ({
         id: item.order_id,
         order_id: item.order_id,
         client_id: item.client_id,
@@ -110,69 +117,16 @@ export default function Orders() {
       setDataGridRows(rows);
 
       let orderGridIndex = rows.findIndex(
-        (item: IOrderProps) => item.order_id === id
+        (item: OrderProps) => item.order_id === id
       );
 
       if (orderGridIndex === -1) orderGridIndex = 0;
 
       reset({ ...rows[orderGridIndex], client_id: rows[orderGridIndex].id });
     } catch (error) {
-      showErrorMessage(error);
+      showToastMessage('Erro: ' + error);
     } finally {
       setIsLoading(false);
-    }
-  }
-
-  async function handleDeleteOrder() {
-    try {
-      setIsLoadingButton(true);
-
-      const id = getValues('order_id');
-
-      const { status } = await api.delete(`Pedido/${id}`);
-
-      if (status === 200) {
-        const updatedList = dataGridRows.filter((item) => item.id !== id);
-
-        setDataGridRows(updatedList);
-
-        const selectedItemIndex = dataGridRows.findIndex(
-          (item) => item.id === getValues('id')
-        );
-
-        reset({
-          ...updatedList[selectedItemIndex - 1],
-        });
-      }
-
-      setShouldDeleteItem(false);
-    } catch (error) {
-      showErrorMessage(error);
-    } finally {
-      setIsLoadingButton(false);
-    }
-  }
-
-  async function handleEditOrder() {
-    const id = getValues('order_id');
-
-    try {
-      setIsLoadingButton(true);
-      setValue('itens', []);
-
-      const { data } = await api.get(`Pedido/${id}`);
-
-      const itens = data.itens;
-
-      for (let i = 0; i < itens.length; i++) {
-        fieldArray.append(itens[i]);
-      }
-
-      setIsEditable(true);
-    } catch (error) {
-      showErrorMessage(error);
-    } finally {
-      setIsLoadingButton(false);
     }
   }
 
@@ -215,14 +169,82 @@ export default function Orders() {
 
       if (status === 201) {
         loadOrders(data.id);
+        setIsNewRecord(false);
+        setIsEditable(false);
       }
     } catch (error) {
-      showErrorMessage(error);
+      showToastMessage('Erro: ' + error);
     } finally {
-      setIsNewRecord(false);
-      setIsEditable(false);
+      setIsLoadingButton(false);
+      showToastMessage('Cadastro realizado com sucesso.');
+    }
+  }
+
+  async function handleDeleteOrder() {
+    try {
+      setIsLoadingButton(true);
+
+      const id = getValues('order_id');
+
+      const { status } = await api.delete(`Pedido/${id}`);
+
+      if (status === 200) {
+        const updatedList = dataGridRows.filter((item) => item.id !== id);
+
+        setDataGridRows(updatedList);
+
+        const selectedItemIndex = dataGridRows.findIndex(
+          (item) => item.id === getValues('id')
+        );
+
+        reset({
+          ...updatedList[selectedItemIndex - 1],
+        });
+      }
+
+      setShouldDeleteItem(false);
+    } catch (error) {
+      showToastMessage('Erro: ' + error);
+    } finally {
+      setIsLoadingButton(false);
+      setShowDialog(false);
+      showToastMessage('Exclusão realizada com sucesso.');
+    }
+  }
+
+  async function handleEditOrder() {
+    const id = getValues('order_id');
+
+    try {
+      setIsLoadingButton(true);
+      setValue('itens', []);
+
+      const { data } = await api.get(`Pedido/${id}`);
+
+      const itens = data.itens;
+
+      for (let i = 0; i < itens.length; i++) {
+        fieldArray.append(itens[i]);
+      }
+
+      setIsEditable(true);
+    } catch (error) {
+      showToastMessage('Erro: ' + error);
+    } finally {
       setIsLoadingButton(false);
     }
+  }
+
+  // Form handling
+  function handleAskDeleteOrder() {
+    setDialogInfo({
+      dialogTitle: 'Cadastro de Pedidos',
+      dialogText: 'Excluir esse Pedido?',
+      dialogButtonText: 'Excluir',
+    });
+
+    setDialogHandleButtonAction(() => handleDeleteOrder);
+    setShowDialog(true);
   }
 
   function handleAddOrder() {
@@ -233,34 +255,28 @@ export default function Orders() {
   }
 
   function handleCancelEdit() {
-    const selectedItemIndex = dataGridRows.findIndex(
-      (item) => item.order_id === getValues('order_id')
-    );
+    if (isNewRecord) {
+      reset({
+        ...dataGridRows[0],
+      });
+    } else {
+      const selectedItemIndex = dataGridRows.findIndex(
+        (item) => item.order_id === getValues('order_id')
+      );
 
-    reset({
-      ...dataGridRows[selectedItemIndex],
-    });
+      reset({
+        ...dataGridRows[selectedItemIndex],
+      });
+    }
 
     setIsEditable(false);
     setIsNewRecord(false);
-  }
-
-  function handleFormError() {
-    const error = Object.values(formState.errors)[0];
-
-    setToastErrorMessage(String(error!.message));
   }
 
   function handleRowClick(params: GridRowParams) {
     const selectedItem = dataGridRows.find((item) => item.id === params.row.id);
 
     reset({ ...selectedItem });
-  }
-
-  function showErrorMessage(error: unknown) {
-    setToastErrorMessage(String(error));
-
-    setTimeout(() => setToastErrorMessage(''), 5000);
   }
 
   useEffect(() => {
@@ -362,7 +378,9 @@ export default function Orders() {
         <PageContainer>
           <ButtonForm
             title="Gravar"
-            handleFunction={handleSubmit(handleRegisterOrder, handleFormError)}
+            handleFunction={handleSubmit(handleRegisterOrder, () =>
+              handleFormError(formState)
+            )}
             loading={isLoadingButton}
           />
 
@@ -379,7 +397,7 @@ export default function Orders() {
 
           <ButtonForm
             title="Excluir"
-            handleFunction={() => setShouldDeleteItem(true)}
+            handleFunction={handleAskDeleteOrder}
             loading={isLoadingButton && shouldDeleteItem}
           />
         </PageContainer>
@@ -419,17 +437,6 @@ export default function Orders() {
           />
         )}
       </GridContainer>
-
-      <DialogComponent
-        title="Cadastro de Pedidos"
-        text="Excluir esse pedido?"
-        handleButtonAction={handleDeleteOrder}
-        handleButtonText="Excluir"
-        state={shouldDeleteItem}
-        setState={setShouldDeleteItem}
-      />
-
-      <ToastMessage message={toastErrorMessage} />
     </FormProvider>
   );
 }

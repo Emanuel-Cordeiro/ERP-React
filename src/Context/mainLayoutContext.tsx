@@ -1,4 +1,5 @@
 import { createContext, Dispatch, SetStateAction } from 'react';
+import { FieldValues, FormState } from 'react-hook-form';
 
 export interface DialogInfoProps {
   dialogTitle: string;
@@ -15,6 +16,7 @@ interface MainLayoutContextProps {
   setDialogHandleButtonAction: Dispatch<SetStateAction<() => void>>;
   showDialog: boolean;
   setShowDialog: Dispatch<SetStateAction<boolean>>;
+  handleFormError: (form: FormState<FieldValues>) => void;
 }
 
 export const MainLayoutContext = createContext<MainLayoutContextProps>({
@@ -30,4 +32,5 @@ export const MainLayoutContext = createContext<MainLayoutContextProps>({
   setDialogHandleButtonAction: () => {},
   showDialog: false,
   setShowDialog: () => {},
+  handleFormError: () => null,
 });

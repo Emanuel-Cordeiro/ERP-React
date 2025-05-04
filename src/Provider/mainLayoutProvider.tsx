@@ -1,9 +1,12 @@
 import { useState } from 'react';
+
+import { FieldValues, FormState } from 'react-hook-form';
+
+import { ChildrenProps } from '../Types/common';
 import {
   DialogInfoProps,
   MainLayoutContext,
 } from '../Context/mainLayoutContext';
-import { ChildrenProps } from '../Types/common';
 
 export default function MainLayoutProvider({ children }: ChildrenProps) {
   const [toastMessage, setToastMessage] = useState('');
@@ -25,6 +28,12 @@ export default function MainLayoutProvider({ children }: ChildrenProps) {
     setTimeout(() => setToastMessage(''), 5000);
   };
 
+  function handleFormError(formState: FormState<FieldValues>) {
+    const error = Object.values(formState.errors)[0];
+
+    showToastMessage('Erro: ' + String(error!.message));
+  }
+
   return (
     <MainLayoutContext.Provider
       value={{
@@ -36,6 +45,7 @@ export default function MainLayoutProvider({ children }: ChildrenProps) {
         setDialogHandleButtonAction,
         showDialog,
         setShowDialog,
+        handleFormError,
       }}
     >
       {children}

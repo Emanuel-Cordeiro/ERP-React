@@ -14,7 +14,7 @@ import {
   PageTitle,
 } from '../../Components/StyleComponents';
 
-export interface IClientProps {
+export interface ClientProps {
   id?: number;
   client_id?: number;
   name: string;
@@ -36,21 +36,22 @@ const formDefault = {
 };
 
 export default function Clients() {
-  const [isEditable, setIsEditable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingButton, setIsLoadingButton] = useState(false);
+  const [isEditable, setIsEditable] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
-  const [dataGridRows, setDataGridRows] = useState<IClientProps[]>([]);
-
-  const { handleSubmit, control, reset, getValues, formState } =
-    useForm<IClientProps>({ defaultValues: formDefault });
+  const [dataGridRows, setDataGridRows] = useState<ClientProps[]>([]);
+  const [isLoadingButton, setIsLoadingButton] = useState(false);
 
   const {
     showToastMessage,
     setDialogInfo,
     setDialogHandleButtonAction,
     setShowDialog,
+    handleFormError,
   } = useMainLayoutContext();
+
+  const { handleSubmit, control, reset, getValues, formState } =
+    useForm<ClientProps>({ defaultValues: formDefault });
 
   const dataGridColumns = useMemo<GridColDef<(typeof dataGridRows)[number]>[]>(
     () => [
@@ -65,13 +66,14 @@ export default function Clients() {
     []
   );
 
+  // API communication
   async function loadClients(id?: number) {
     try {
       setIsLoading(true);
 
       const { data } = await api.get('Cliente');
 
-      const rows = data.map((client: IClientProps) => ({
+      const rows = data.map((client: ClientProps) => ({
         id: client.client_id,
         client_id: client.client_id,
         name: client.name,
@@ -85,14 +87,14 @@ export default function Clients() {
       setDataGridRows(rows);
 
       let clientGridIndex = rows.findIndex(
-        (item: IClientProps) => item.client_id === id
+        (item: ClientProps) => item.client_id === id
       );
 
       if (clientGridIndex === -1) clientGridIndex = 0;
 
       reset({ ...rows[clientGridIndex], client_id: rows[clientGridIndex].id });
     } catch (error) {
-      showToastMessage('Erro: ' + String(error));
+      showToastMessage('Erro: ' + error);
     } finally {
       setIsLoading(false);
     }
@@ -123,6 +125,7 @@ export default function Clients() {
       showToastMessage('Erro: ' + error);
     } finally {
       setIsLoadingButton(false);
+      showToastMessage('Cadastro realizado com sucesso.');
     }
   }
 
@@ -150,9 +153,11 @@ export default function Clients() {
     } finally {
       setIsLoadingButton(false);
       setShowDialog(false);
+      showToastMessage('Exclusão realizada com sucesso.');
     }
   }
 
+  // Form handling in general
   function handleAskDeleteClient() {
     setDialogInfo({
       dialogTitle: 'Cadastro de Clientes',
@@ -187,6 +192,7 @@ export default function Clients() {
     }
 
     setIsEditable(false);
+    setIsNewRecord(false);
   }
 
   function handleRowClick(params: GridRowParams) {
@@ -195,12 +201,6 @@ export default function Clients() {
     );
 
     reset({ ...selectedClient });
-  }
-
-  function handleFormError() {
-    const error = Object.values(formState.errors)[0];
-
-    showToastMessage('Erro: ' + String(error.message));
   }
 
   useEffect(() => {
@@ -331,7 +331,9 @@ export default function Clients() {
         <PageContainer>
           <ButtonForm
             title="Gravar"
-            handleFunction={handleSubmit(handleRegisterClient, handleFormError)}
+            handleFunction={handleSubmit(handleRegisterClient, () =>
+              handleFormError(formState)
+            )}
             loading={isLoadingButton}
           />
 

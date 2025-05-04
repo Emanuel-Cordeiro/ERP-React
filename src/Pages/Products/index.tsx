@@ -7,15 +7,14 @@ import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
-import ToastMessage from '../../Components/ToastMessage';
-import DialogComponent from '../../Components/DialogComponent';
+import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
 import {
   GridContainer,
   PageContainer,
   PageTitle,
 } from '../../Components/StyleComponents';
 
-interface IProductProps {
+interface ProductProps {
   id?: number;
   product_id?: number;
   description: string;
@@ -35,15 +34,22 @@ const formDefault = {
 };
 
 export default function Products() {
-  const [isEditable, setIsEditable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingButton, setIsLoadingButton] = useState(false);
+  const [isEditable, setIsEditable] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
-  const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
-  const [toastErrorMessage, setToastErrorMessage] = useState('');
-  const [dataGridRows, setDataGridRows] = useState<IProductProps[]>([]);
+  const [dataGridRows, setDataGridRows] = useState<ProductProps[]>([]);
+  const [isLoadingButton, setIsLoadingButton] = useState(false);
+
+  const {
+    showToastMessage,
+    setDialogInfo,
+    setDialogHandleButtonAction,
+    setShowDialog,
+    handleFormError,
+  } = useMainLayoutContext();
+
   const { control, getValues, reset, handleSubmit, formState } =
-    useForm<IProductProps>({ defaultValues: formDefault });
+    useForm<ProductProps>({ defaultValues: formDefault });
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
     { field: 'id', headerName: 'Código', width: 70 },
@@ -54,19 +60,14 @@ export default function Products() {
     { field: 'stock', headerName: 'Estoque', width: 100 },
   ];
 
-  function handleRowClick(params: GridRowParams) {
-    const selectedItem = dataGridRows.find((item) => item.id === params.row.id);
-
-    reset({ ...selectedItem });
-  }
-
+  // API Communication
   async function loadProducts(id?: number) {
     try {
       setIsLoading(true);
 
       const { data } = await api.get('Produto');
 
-      const rows = data.map((item: IProductProps) => ({
+      const rows = data.map((item: ProductProps) => ({
         id: item.id,
         product_id: item.id,
         description: item.description,
@@ -79,7 +80,7 @@ export default function Products() {
       setDataGridRows(rows);
 
       let productIndexInGrid = rows.findIndex(
-        (item: IProductProps) => item.product_id === id
+        (item: ProductProps) => item.product_id === id
       );
 
       if (productIndexInGrid === -1) productIndexInGrid = 0;
@@ -89,35 +90,9 @@ export default function Products() {
         product_id: rows[productIndexInGrid].product_id,
       });
     } catch (error) {
-      showErrorMessage(String(error));
+      showToastMessage('Erro: ' + error);
     } finally {
       setIsLoading(false);
-    }
-  }
-
-  async function handleDeleteProduct() {
-    const id = getValues('id');
-
-    try {
-      const res = await api.delete(`Produto/${id}`);
-
-      if (res.status === 201) {
-        const updatedList = dataGridRows.filter((item) => item.id !== id);
-
-        setDataGridRows(updatedList);
-
-        const selectedItemIndex = dataGridRows.findIndex(
-          (item) => item.id === getValues('id')
-        );
-
-        reset({
-          ...updatedList[selectedItemIndex - 1],
-        });
-      }
-
-      setShouldDeleteItem(false);
-    } catch (error) {
-      showErrorMessage(error);
     }
   }
 
@@ -143,10 +118,51 @@ export default function Products() {
         setIsNewRecord(false);
       }
     } catch (error) {
-      showErrorMessage(error);
+      showToastMessage('Erro: ' + error);
     } finally {
       setIsLoadingButton(false);
+      showToastMessage('Cadastro realizado com sucesso.');
     }
+  }
+
+  async function handleDeleteProduct() {
+    const id = getValues('id');
+
+    try {
+      const res = await api.delete(`Produto/${id}`);
+
+      if (res.status === 201) {
+        const updatedList = dataGridRows.filter((item) => item.id !== id);
+
+        setDataGridRows(updatedList);
+
+        const selectedItemIndex = dataGridRows.findIndex(
+          (item) => item.id === getValues('id')
+        );
+
+        reset({
+          ...updatedList[selectedItemIndex - 1],
+        });
+      }
+    } catch (error) {
+      showToastMessage('Erro: ' + error);
+    } finally {
+      setIsLoadingButton(false);
+      setShowDialog(false);
+      showToastMessage('Exclusão realizada com sucesso.');
+    }
+  }
+
+  // Form handling in general
+  function handleAskDeleteProduct() {
+    setDialogInfo({
+      dialogTitle: 'Cadastro de Produtos',
+      dialogText: 'Excluir esse Produto?',
+      dialogButtonText: 'Excluir',
+    });
+
+    setDialogHandleButtonAction(() => handleDeleteProduct);
+    setShowDialog(true);
   }
 
   function handleAddProduct() {
@@ -157,28 +173,28 @@ export default function Products() {
   }
 
   function handleCancelEdit() {
-    const selectedItemIndex = dataGridRows.findIndex(
-      (item) => item.id === getValues('id')
-    );
+    if (isNewRecord) {
+      reset({
+        ...dataGridRows[0],
+      });
+    } else {
+      const selectedItemIndex = dataGridRows.findIndex(
+        (item) => item.id === getValues('id')
+      );
 
-    reset({
-      ...dataGridRows[selectedItemIndex],
-    });
+      reset({
+        ...dataGridRows[selectedItemIndex],
+      });
+    }
 
     setIsEditable(false);
     setIsNewRecord(false);
   }
 
-  function handleFormError() {
-    const error = Object.values(formState.errors)[0];
+  function handleRowClick(params: GridRowParams) {
+    const selectedItem = dataGridRows.find((item) => item.id === params.row.id);
 
-    showErrorMessage(String(error!.message));
-  }
-
-  function showErrorMessage(error: unknown) {
-    setToastErrorMessage(String(error));
-
-    setTimeout(() => setToastErrorMessage(''), 5000);
+    reset({ ...selectedItem });
   }
 
   useEffect(() => {
@@ -292,9 +308,8 @@ export default function Products() {
           <>
             <ButtonForm
               title="Gravar"
-              handleFunction={handleSubmit(
-                handleRegisterProduct,
-                handleFormError
+              handleFunction={handleSubmit(handleRegisterProduct, () =>
+                handleFormError(formState)
               )}
               loading={isLoadingButton}
             />
@@ -312,7 +327,7 @@ export default function Products() {
 
             <ButtonForm
               title="Excluir"
-              handleFunction={() => setShouldDeleteItem(true)}
+              handleFunction={handleAskDeleteProduct}
               loading={isLoadingButton}
             />
           </>
@@ -349,17 +364,6 @@ export default function Products() {
           }}
         />
       </GridContainer>
-
-      <DialogComponent
-        title="Cadastro de Produtos"
-        text="Excluir esse produto?"
-        handleButtonAction={handleDeleteProduct}
-        handleButtonText="Excluir"
-        state={shouldDeleteItem}
-        setState={setShouldDeleteItem}
-      />
-
-      <ToastMessage message={toastErrorMessage} />
     </>
   );
 }

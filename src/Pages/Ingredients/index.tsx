@@ -7,15 +7,14 @@ import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
-import ToastMessage from '../../Components/ToastMessage';
-import DialogComponent from '../../Components/DialogComponent';
+import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
 import {
   GridContainer,
   PageContainer,
   PageTitle,
 } from '../../Components/StyleComponents';
 
-interface IIngredientProps {
+interface IngredientProps {
   id?: number;
   ingredient_id?: number;
   description: string;
@@ -33,15 +32,22 @@ const formDefault = {
 };
 
 export default function Ingredients() {
-  const [isEditable, setIsEditable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingButton, setIsLoadingButton] = useState(false);
+  const [isEditable, setIsEditable] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
-  const [shouldDeleteItem, setShouldDeleteItem] = useState(false);
-  const [toastErrorMessage, setToastErrorMessage] = useState('');
-  const [dataGridRows, setDataGridRows] = useState<IIngredientProps[]>([]);
+  const [dataGridRows, setDataGridRows] = useState<IngredientProps[]>([]);
+  const [isLoadingButton, setIsLoadingButton] = useState(false);
+
+  const {
+    showToastMessage,
+    setDialogInfo,
+    setDialogHandleButtonAction,
+    setShowDialog,
+    handleFormError,
+  } = useMainLayoutContext();
+
   const { control, getValues, reset, handleSubmit, formState } =
-    useForm<IIngredientProps>({ defaultValues: formDefault });
+    useForm<IngredientProps>({ defaultValues: formDefault });
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
     { field: 'id', headerName: 'Código', width: 70 },
@@ -51,56 +57,14 @@ export default function Ingredients() {
     { field: 'stock', headerName: 'Estoque', width: 100 },
   ];
 
-  function handleRowClick(params: GridRowParams) {
-    const selectedIngredient = dataGridRows.find(
-      (ingredient) => ingredient.id === params.row.id
-    );
-
-    reset({
-      ...selectedIngredient,
-    });
-  }
-
-  function showErrorMessage(error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-
-    setToastErrorMessage(msg);
-    setTimeout(() => setToastErrorMessage(''), 5000);
-  }
-
-  function handleFormError() {
-    const error = Object.values(formState.errors)[0];
-
-    showErrorMessage(String(error!.message));
-  }
-
-  function handleAddClient() {
-    reset(formDefault);
-
-    setIsNewRecord(true);
-    setIsEditable(true);
-  }
-
-  function handleCancelEdit() {
-    const selectedIngredientIndex = dataGridRows.findIndex(
-      (ingredient) => ingredient.ingredient_id === getValues('ingredient_id')
-    );
-
-    reset({
-      ...dataGridRows[selectedIngredientIndex],
-    });
-
-    setIsEditable(false);
-    setIsNewRecord(false);
-  }
-
+  //API Communication
   async function loadIngredients(id?: number) {
     try {
       setIsLoading(true);
 
       const { data } = await api.get('Ingrediente');
 
-      const rows = data.map((ingredient: IIngredientProps) => ({
+      const rows = data.map((ingredient: IngredientProps) => ({
         id: ingredient.ingredient_id,
         ingredient_id: ingredient.ingredient_id,
         description: ingredient.description,
@@ -112,7 +76,7 @@ export default function Ingredients() {
       setDataGridRows(rows);
 
       let ingredientIndexInGrid = rows.findIndex(
-        (item: IIngredientProps) => item.ingredient_id === id
+        (item: IngredientProps) => item.ingredient_id === id
       );
 
       if (ingredientIndexInGrid === -1) ingredientIndexInGrid = 0;
@@ -122,7 +86,7 @@ export default function Ingredients() {
         ingredient_id: rows[ingredientIndexInGrid].ingredient_id,
       });
     } catch (error) {
-      showErrorMessage(String(error));
+      showToastMessage('Erro: ' + error);
     } finally {
       setIsLoading(false);
     }
@@ -150,9 +114,10 @@ export default function Ingredients() {
         setIsNewRecord(false);
       }
     } catch (error) {
-      showErrorMessage(error);
+      showToastMessage(error);
     } finally {
       setIsLoadingButton(false);
+      showToastMessage('Cadastro realizado com sucesso.');
     }
   }
 
@@ -178,13 +143,61 @@ export default function Ingredients() {
           ...updatedList[selectedIngredientIndex - 1],
         });
       }
-
-      setShouldDeleteItem(false);
     } catch (error) {
-      showErrorMessage(error);
+      showToastMessage('Erro: ' + error);
     } finally {
       setIsLoadingButton(false);
+      setShowDialog(false);
+      showToastMessage('Exclusão realizada com sucesso.');
     }
+  }
+
+  // Form handling
+  function handleAskDeleteIngredient() {
+    setDialogInfo({
+      dialogTitle: 'Cadastro de Ingredientes',
+      dialogText: 'Excluir esse Ingrediente?',
+      dialogButtonText: 'Excluir',
+    });
+
+    setDialogHandleButtonAction(() => handleDeleteIngredient);
+    setShowDialog(true);
+  }
+
+  function handleAddClient() {
+    reset(formDefault);
+
+    setIsNewRecord(true);
+    setIsEditable(true);
+  }
+
+  function handleCancelEdit() {
+    if (isNewRecord) {
+      reset({
+        ...dataGridRows[0],
+      });
+    } else {
+      const selectedIngredientIndex = dataGridRows.findIndex(
+        (ingredient) => ingredient.ingredient_id === getValues('ingredient_id')
+      );
+
+      reset({
+        ...dataGridRows[selectedIngredientIndex],
+      });
+    }
+
+    setIsEditable(false);
+    setIsNewRecord(false);
+  }
+
+  function handleRowClick(params: GridRowParams) {
+    const selectedIngredient = dataGridRows.find(
+      (ingredient) => ingredient.id === params.row.id
+    );
+
+    reset({
+      ...selectedIngredient,
+    });
   }
 
   useEffect(() => {
@@ -281,9 +294,8 @@ export default function Ingredients() {
           <>
             <ButtonForm
               title="Gravar"
-              handleFunction={handleSubmit(
-                handleRegisterIngredient,
-                handleFormError
+              handleFunction={handleSubmit(handleRegisterIngredient, () =>
+                handleFormError(formState)
               )}
               loading={isLoadingButton}
             />
@@ -301,7 +313,7 @@ export default function Ingredients() {
 
             <ButtonForm
               title="Excluir"
-              handleFunction={() => setShouldDeleteItem(true)}
+              handleFunction={handleAskDeleteIngredient}
               loading={isLoadingButton}
             />
           </>
@@ -338,17 +350,6 @@ export default function Ingredients() {
           }}
         />
       </GridContainer>
-
-      <ToastMessage message={toastErrorMessage} />
-
-      <DialogComponent
-        title="Cadastro de Ingredientes"
-        text="Excluir esse ingrediente?"
-        handleButtonAction={handleDeleteIngredient}
-        handleButtonText="Excluir"
-        state={shouldDeleteItem}
-        setState={setShouldDeleteItem}
-      />
     </>
   );
 }
