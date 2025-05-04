@@ -7,8 +7,9 @@ import { Button, MenuItem, Select, SelectChangeEvent } from '@mui/material';
 
 import api from '../../Services/api';
 import { RecipeProps } from '../../Pages/Recipes';
+import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
 
-interface IItensProps {
+interface ItensProps {
   id: number;
   ingredient_id?: number;
   description: string;
@@ -16,7 +17,7 @@ interface IItensProps {
   selectedItem?: number | '';
 }
 
-interface ISelectItemProps {
+interface SelectItemProps {
   id?: number;
   ingredient_id: number;
   description: string;
@@ -24,12 +25,15 @@ interface ISelectItemProps {
 }
 
 export default function ItensDataGrid() {
-  const [itensDataGridRows, setItensDataGridRows] = useState<IItensProps[]>([]);
-  const [itensSelect, setItensSelect] = useState<ISelectItemProps[]>([]);
+  const [itensDataGridRows, setItensDataGridRows] = useState<ItensProps[]>([]);
+  const [itensSelect, setItensSelect] = useState<SelectItemProps[]>([]);
+
+  const { showToastMessage } = useMainLayoutContext();
+
   const form = useFormContext<RecipeProps>();
   const fieldArray = useFieldArray({ control: form.control, name: 'itens' });
 
-  const itemDataGridColumns: GridColDef<IItensProps>[] = [
+  const itemDataGridColumns: GridColDef<ItensProps>[] = [
     { field: 'ingredient_id', headerName: 'Código', width: 70 },
     {
       field: 'description',
@@ -88,20 +92,24 @@ export default function ItensDataGrid() {
     },
   ];
 
-  //api communication
+  // API Communication
   async function loadItensSelect() {
-    const { data } = await api.get('Ingrediente');
+    try {
+      const { data } = await api.get('Ingrediente');
 
-    const obj = data.map((item: ISelectItemProps) => ({
-      id: item.ingredient_id,
-      ingredient_id: item.ingredient_id,
-      description: item.description,
-    }));
+      const obj = data.map((item: SelectItemProps) => ({
+        id: item.ingredient_id,
+        ingredient_id: item.ingredient_id,
+        description: item.description,
+      }));
 
-    setItensSelect(obj);
+      setItensSelect(obj);
+    } catch (error) {
+      showToastMessage('Erro: ' + error);
+    }
   }
 
-  //grid handling events
+  // Grid handling events
   function handleChange(event: SelectChangeEvent<number>, rowIndex: number) {
     const selectedId = event.target.value as number;
     const existingIndex = itensDataGridRows.findIndex(
@@ -141,7 +149,7 @@ export default function ItensDataGrid() {
   }
 
   const handleProcessRowUpdate = useCallback(
-    (newRow: IItensProps) => {
+    (newRow: ItensProps) => {
       fieldArray.update(newRow.id - 1, newRow);
 
       const formItens = form.getValues('itens').map((item, index) => ({
@@ -153,6 +161,7 @@ export default function ItensDataGrid() {
       }));
 
       setItensDataGridRows(formItens);
+
       return newRow;
     },
     [fieldArray, form]
@@ -184,7 +193,7 @@ export default function ItensDataGrid() {
     }
   };
 
-  // form handling events
+  // Form handling events
   function loadDataGridItens() {
     const itens = form.getValues('itens') || [];
 

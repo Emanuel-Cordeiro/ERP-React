@@ -1,7 +1,7 @@
 import { Autocomplete, TextField } from '@mui/material';
 import api from '../../Services/api';
 import { useEffect, useState } from 'react';
-import { IClientProps } from '../../Pages/Clients';
+import { ClientProps } from '../../Pages/Clients';
 
 interface ISearchComponent {
   id: string;
@@ -28,7 +28,7 @@ export default function SearchComponent({
         const { data } = await api.get('Cliente');
 
         const names = data.map(
-          (client: IClientProps) => client.client_id + ' - ' + client.name
+          (client: ClientProps) => client.client_id + ' - ' + client.name
         );
 
         setOptions(names);

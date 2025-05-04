@@ -67,9 +67,9 @@ export default function Products() {
 
       const { data } = await api.get('Produto');
 
-      const rows = data.map((item: ProductProps) => ({
-        id: item.id,
-        product_id: item.id,
+      const rows = data.map((item: ProductProps, index: number) => ({
+        id: index + 1,
+        product_id: item.product_id,
         description: item.description,
         unity: item.unity,
         price: item.price,

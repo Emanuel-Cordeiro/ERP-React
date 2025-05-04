@@ -6,10 +6,11 @@ import { DataGrid, GridColDef, GridEventListener } from '@mui/x-data-grid';
 import { Button, MenuItem, Select, SelectChangeEvent } from '@mui/material';
 
 import api from '../../Services/api';
-import { IOrderProps } from '../../Pages/Orders';
+import { OrderProps } from '../../Pages/Orders';
+import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
 
-interface IItensProps {
-  id?: number;
+interface ItensProps {
+  id: number;
   order_item_order: number;
   product_id: number;
   item_id?: number;
@@ -20,7 +21,7 @@ interface IItensProps {
   selectedItem?: number | '';
 }
 
-interface ISelectItemProps {
+interface SelectItemProps {
   id?: number;
   product_id: number;
   description: string;
@@ -36,7 +37,7 @@ const ProductSelectCell = ({
 }: {
   value: number | '';
   rowId: number | string;
-  options: ISelectItemProps[];
+  options: SelectItemProps[];
   onChange: (event: SelectChangeEvent<number>, rowIndex: number) => void;
 }) => {
   return (
@@ -62,12 +63,15 @@ const ProductSelectCell = ({
 };
 
 export default function OrderItemsDataGrid() {
-  const [itemRows, setItemsRows] = useState<IItensProps[]>([]);
-  const [selectOptions, setSelectOptions] = useState<ISelectItemProps[]>([]);
-  const form = useFormContext<IOrderProps>();
+  const [itemRows, setItemsRows] = useState<ItensProps[]>([]);
+  const [selectOptions, setSelectOptions] = useState<SelectItemProps[]>([]);
+
+  const { showToastMessage } = useMainLayoutContext();
+
+  const form = useFormContext<OrderProps>();
   const fieldArray = useFieldArray({ control: form.control, name: 'itens' });
 
-  const itemDataGridColumns: GridColDef<IItensProps>[] = [
+  const itemDataGridColumns: GridColDef<ItensProps>[] = [
     { field: 'product_id', headerName: 'Código', width: 70 },
     {
       field: 'description',
@@ -121,14 +125,14 @@ export default function OrderItemsDataGrid() {
     },
   ];
 
-  //api communication
+  // API Communication
   const loadItensSelect = useCallback(async () => {
     try {
       const { data } = await api.get('Produto');
 
-      const obj = data.map((item: ISelectItemProps) => ({
-        id: item.id,
-        product_id: item.id,
+      const obj = data.map((item: SelectItemProps) => ({
+        id: item.product_id,
+        product_id: item.product_id,
         description: item.description,
         price: item.price,
         quantity: item.quantity,
@@ -136,49 +140,62 @@ export default function OrderItemsDataGrid() {
 
       setSelectOptions(obj);
     } catch (error) {
-      console.error(error);
+      showToastMessage('Erro: ' + error);
     }
-  }, []);
+  }, [showToastMessage]);
 
-  //grid handling events
+  // Grid handling events
   const handleChange = useCallback(
-    //TESTE: Incluir um produto coloca ele no grid corretamente
     (event: SelectChangeEvent<number>, rowIndex: number) => {
       const selectedId = event.target.value as number;
-      const selectedIngredient = selectOptions.find(
-        (item) => item.id === selectedId
+
+      const existingIndex = itemRows.findIndex(
+        (item) => item.product_id === selectedId
       );
 
-      const updatedItem = {
-        id: rowIndex + 1,
-        selectedItem: selectedId,
-        product_id: selectedIngredient?.product_id || 0,
-        description: selectedIngredient?.description || '',
-        price: selectedIngredient?.price || 0,
-        quantity: 1,
-        observation: '',
-        order_item_order: rowIndex,
-      };
+      if (existingIndex !== -1) {
+        const updatedRows = [...itemRows];
 
-      fieldArray.remove(rowIndex);
-      fieldArray.insert(rowIndex, updatedItem);
+        updatedRows[existingIndex].quantity =
+          Number(updatedRows[existingIndex].quantity) + 1;
 
-      setItemsRows((prevRows) =>
-        prevRows.map((row, index) => (index === rowIndex ? updatedItem : row))
-      );
+        setItemsRows(updatedRows);
+
+        fieldArray.update(existingIndex, updatedRows[existingIndex]);
+      } else {
+        const selectedIngredient = selectOptions.find(
+          (item) => item.id === selectedId
+        );
+
+        const updatedItem = {
+          id: rowIndex + 1,
+          selectedItem: selectedId,
+          product_id: selectedIngredient?.product_id || 0,
+          description: selectedIngredient?.description || '',
+          price: selectedIngredient?.price || 0,
+          quantity: 1,
+          observation: '',
+          order_item_order: rowIndex,
+        };
+
+        fieldArray.remove(rowIndex);
+        fieldArray.insert(rowIndex, updatedItem);
+
+        setItemsRows((prevRows) =>
+          prevRows.map((row, index) => (index === rowIndex ? updatedItem : row))
+        );
+      }
     },
-    [fieldArray, selectOptions]
+    [fieldArray, itemRows, selectOptions]
   );
 
   const handleProcessRowUpdate = useCallback(
-    (newRow: IItensProps) => {
-      const index = newRow.id || 0;
-
-      fieldArray.update(index - 1, newRow);
+    (newRow: ItensProps) => {
+      fieldArray.update(newRow.id - 1, newRow);
 
       const newItens = form.getValues('itens').map((item, index) => ({
         ...item,
-        id: index,
+        id: index + 1,
       }));
 
       setItemsRows(newItens);
@@ -189,7 +206,6 @@ export default function OrderItemsDataGrid() {
   );
 
   const addNewRow = useCallback(() => {
-    // TESTE: Incluir gera uma nova linha OK
     setItemsRows((prevRows) => [
       ...prevRows,
       {
@@ -198,7 +214,7 @@ export default function OrderItemsDataGrid() {
         description: '',
         quantity: 0,
         selectedItem: '',
-        order_item_order: 0,
+        order_item_order: 999,
         price: 0,
         observation: '',
       },
@@ -209,19 +225,19 @@ export default function OrderItemsDataGrid() {
     if (event.key === 'ArrowDown') {
       const isLastRow = params.id === itemRows[itemRows.length - 1].id;
 
-      if (isLastRow && params.id !== 0) {
+      if (isLastRow && itemRows[itemRows.length - 1].product_id) {
         addNewRow();
       }
     }
   };
 
-  // form handling events
+  // Form handling events
   function loadDataGridItens() {
     const itens = form.getValues('itens') || [];
 
     const updatedItens = itens.map((item, index) => ({
       ...item,
-      id: index,
+      id: index + 1,
       selectedItem: item.product_id,
     }));
 
@@ -254,7 +270,6 @@ export default function OrderItemsDataGrid() {
     <DataGrid
       rows={itemRows}
       columns={itemDataGridColumns}
-      getRowId={(row) => row.id!}
       initialState={{
         pagination: {
           paginationModel: {
