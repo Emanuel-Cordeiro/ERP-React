@@ -14,6 +14,7 @@ interface RecipeIngredientProps {
   ingredient_id?: number;
   description: string;
   quantity: number;
+  cost: number;
 }
 
 export interface RecipeProps {
@@ -93,6 +94,14 @@ export default function Recipes() {
       } else {
         formData = getValues();
       }
+
+      let cost = 0;
+
+      for (let i = 0; i < formData.itens.length; i++) {
+        cost += formData.itens[i].cost * formData.itens[i].quantity;
+      }
+
+      formData.cost = cost;
 
       const { status } = await api.post('Receita', formData);
 

@@ -14,6 +14,7 @@ interface ItensProps {
   ingredient_id?: number;
   description: string;
   quantity: number;
+  cost: number;
   selectedItem?: number | '';
 }
 
@@ -22,6 +23,7 @@ interface SelectItemProps {
   ingredient_id: number;
   description: string;
   quantity: number;
+  cost: number;
 }
 
 export default function ItensDataGrid() {
@@ -101,6 +103,7 @@ export default function ItensDataGrid() {
         id: item.ingredient_id,
         ingredient_id: item.ingredient_id,
         description: item.description,
+        cost: item.cost,
       }));
 
       setItensSelect(obj);
@@ -136,6 +139,7 @@ export default function ItensDataGrid() {
         ingredient_id: selectedIngredient?.ingredient_id || 0,
         description: selectedIngredient?.description || '',
         quantity: 1,
+        cost: selectedIngredient?.cost || 0,
         selectedItem: selectedId,
       };
 
@@ -157,6 +161,7 @@ export default function ItensDataGrid() {
         ingredient_id: item.ingredient_id,
         description: item.description,
         quantity: item.quantity,
+        cost: item.cost,
         selectedItem: item.ingredient_id,
       }));
 
@@ -175,6 +180,7 @@ export default function ItensDataGrid() {
         description: '',
         quantity: 1,
         selectedItem: '',
+        cost: 0,
       },
     ]);
   }, []);
