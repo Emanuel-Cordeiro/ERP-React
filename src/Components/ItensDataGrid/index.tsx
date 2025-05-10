@@ -74,6 +74,12 @@ export default function ItensDataGrid() {
       editable: true,
     },
     {
+      field: 'cost',
+      headerName: 'Custo',
+      width: 100,
+      editable: true,
+    },
+    {
       field: 'delete',
       headerName: 'Excluir',
       width: 85,

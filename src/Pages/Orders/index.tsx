@@ -311,6 +311,7 @@ export default function Orders() {
             <SearchComponent
               id="client_name"
               label="Cliente"
+              type="client"
               width={500}
               disabled={!isEditable}
               value={value}
