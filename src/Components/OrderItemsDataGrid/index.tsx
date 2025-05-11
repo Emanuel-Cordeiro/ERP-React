@@ -19,6 +19,7 @@ interface ItensProps {
   price: number;
   observation: string;
   selectedItem?: number | '';
+  item_total_value: number;
 }
 
 interface SelectItemProps {
@@ -99,6 +100,12 @@ export default function OrderItemsDataGrid() {
       editable: true,
     },
     {
+      field: 'item_total_value',
+      headerName: 'Valor',
+      width: 90,
+      editable: true,
+    },
+    {
       field: 'observation',
       headerName: 'Observação',
       width: 250,
@@ -176,6 +183,7 @@ export default function OrderItemsDataGrid() {
           quantity: 1,
           observation: '',
           order_item_order: rowIndex,
+          item_total_value: 0,
         };
 
         fieldArray.remove(rowIndex);
@@ -195,9 +203,10 @@ export default function OrderItemsDataGrid() {
 
       const newItens = form.getValues('itens').map((item, index) => ({
         ...item,
+        item_total_value: Number((item.price * item.quantity).toPrecision(2)),
         id: index + 1,
       }));
-
+      console.log(1);
       setItemsRows(newItens);
 
       return newRow;
@@ -217,6 +226,7 @@ export default function OrderItemsDataGrid() {
         order_item_order: 999,
         price: 0,
         observation: '',
+        item_total_value: 0,
       },
     ]);
   }, []);

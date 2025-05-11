@@ -270,7 +270,7 @@ export default function Clients() {
             <Input
               id="address"
               label="Endereço"
-              width={500}
+              width={300}
               value={value}
               setValue={onChange}
               disabled={!isEditable}
@@ -302,7 +302,7 @@ export default function Clients() {
             <Input
               id="district"
               label="Bairro"
-              width={250}
+              width={185}
               value={value}
               setValue={onChange}
               disabled={!isEditable}
@@ -318,7 +318,7 @@ export default function Clients() {
             <Input
               id="city"
               label="Cidade"
-              width={250}
+              width={150}
               value={value}
               setValue={onChange}
               disabled={!isEditable}
