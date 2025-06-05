@@ -210,6 +210,8 @@ export default function Orders() {
         reset({
           ...updatedList[selectedItemIndex - 1],
         });
+
+        showToastMessage('Exclusão realizada com sucesso.');
       }
 
       setShouldDeleteItem(false);
@@ -218,7 +220,6 @@ export default function Orders() {
     } finally {
       setIsLoadingButton(false);
       setShowDialog(false);
-      showToastMessage('Exclusão realizada com sucesso.');
     }
   }
 

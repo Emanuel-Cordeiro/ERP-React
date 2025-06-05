@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { AxiosError, isAxiosError } from 'axios';
 import { Controller, useForm } from 'react-hook-form';
 
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 
 import api from '../../Services/api';
+import { ApiError } from '../../Types/common';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
 import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
@@ -13,8 +15,6 @@ import {
   PageContainer,
   PageTitle,
 } from '../../Components/StyleComponents';
-import { AxiosError, isAxiosError } from 'axios';
-import { ApiError } from '../../Types/common';
 
 export interface ClientProps {
   id?: number;
@@ -57,7 +57,8 @@ export default function Clients() {
 
   const dataGridColumns = useMemo<GridColDef<(typeof dataGridRows)[number]>[]>(
     () => [
-      { field: 'id', headerName: 'Código', width: 70 },
+      { field: 'id', headerName: 'Id', width: 10 },
+      { field: 'client_id', headerName: 'Código', width: 70 },
       { field: 'name', headerName: 'Nome', width: 300 },
       { field: 'phone', headerName: 'Telefone', width: 130 },
       { field: 'address', headerName: 'Endereço', width: 200 },
@@ -75,8 +76,8 @@ export default function Clients() {
 
       const { data } = await api.get('Cliente');
 
-      const rows = data.map((client: ClientProps) => ({
-        id: client.client_id,
+      const rows = data.map((client: ClientProps, index: number) => ({
+        id: index,
         client_id: client.client_id,
         name: client.name,
         number: client.number,
@@ -111,7 +112,7 @@ export default function Clients() {
       if (isNewRecord) {
         formData = { ...getValues() };
 
-        delete formData.id;
+        delete formData.client_id;
       } else {
         formData = { ...getValues(), client_id: getValues('client_id') };
       }
@@ -122,7 +123,9 @@ export default function Clients() {
         loadClients(data.id);
         setIsEditable(false);
         setIsNewRecord(false);
-        showToastMessage('Cadastro realizado com sucesso.');
+        showToastMessage(
+          `Cadastro ${status === 201 ? 'realizado' : 'alterado'} com sucesso.`
+        );
       }
     } catch (error) {
       showToastMessage('Erro: ' + error);
@@ -212,7 +215,7 @@ export default function Clients() {
     if (isEditable) return;
 
     const selectedClient = dataGridRows.find(
-      (client) => client.client_id === params.row.id
+      (client) => client.id === params.row.id
     );
 
     reset({ ...selectedClient });
