@@ -97,6 +97,9 @@ export default function Recipes() {
 
       let cost = 0;
 
+      if (formData.itens.length === 0)
+        throw new Error('É obrigatório informar itens.');
+
       for (let i = 0; i < formData.itens.length; i++) {
         cost += formData.itens[i].cost * formData.itens[i].quantity;
       }
@@ -109,37 +112,35 @@ export default function Recipes() {
         loadRecipes();
         setIsEditable(false);
         setIsNewRecord(false);
+        showToastMessage('Cadastro realizado com sucesso.');
       }
     } catch (error) {
       showToastMessage('Erro: ' + error);
     } finally {
       setIsLoadingButton(false);
-      showToastMessage('Cadastro realizado com sucesso.');
     }
   }
 
   async function handleDeleteRecipe() {
-    const id = getValues('recipe_id');
+    const recipeId = getValues('recipe_id');
 
     try {
-      const res = await api.delete(`Receita/${id}`);
+      const res = await api.delete(`Receita/${recipeId}`);
 
-      if (res.status === 201) {
-        let selectedItemIndex = dataGridRows.findIndex(
-          (item) => item.recipe_id === id
+      if (res.status === 204) {
+        const updatedList = dataGridRows.filter(
+          (item) => item.recipe_id !== recipeId
         );
 
-        if (selectedItemIndex !== -1) selectedItemIndex = 0;
+        setDataGridRows(updatedList);
 
-        const updatedList = dataGridRows.filter(
-          (item) => item.recipe_id !== id
+        const selectedItemIndex = dataGridRows.findIndex(
+          (item) => item.recipe_id === getValues('recipe_id')
         );
 
         reset({
-          ...updatedList[selectedItemIndex - 1],
+          ...(updatedList[selectedItemIndex - 1] || formDefault),
         });
-
-        setDataGridRows(updatedList);
       }
     } catch (error) {
       showToastMessage('Erro: ' + error);

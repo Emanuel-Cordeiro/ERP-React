@@ -13,6 +13,8 @@ import {
   PageContainer,
   PageTitle,
 } from '../../Components/StyleComponents';
+import { AxiosError, isAxiosError } from 'axios';
+import { ApiError } from '../../Types/common';
 
 export interface ClientProps {
   id?: number;
@@ -120,40 +122,51 @@ export default function Clients() {
         loadClients(data.id);
         setIsEditable(false);
         setIsNewRecord(false);
+        showToastMessage('Cadastro realizado com sucesso.');
       }
     } catch (error) {
       showToastMessage('Erro: ' + error);
     } finally {
       setIsLoadingButton(false);
-      showToastMessage('Cadastro realizado com sucesso.');
     }
   }
 
   async function handleDeleteClient() {
-    const id = getValues('client_id');
+    const clientId = getValues('client_id');
 
     try {
       setIsLoadingButton(true);
 
-      const res = await api.delete(`Cliente/${id}`);
+      const res = await api.delete(`Cliente/${clientId}`);
 
-      if (res.status === 200) {
-        const updatedList = dataGridRows.filter((item) => item.id !== id);
+      if (res.status === 204) {
+        const selectedClientIndex = dataGridRows.findIndex(
+          (client) => client.client_id === clientId
+        );
+
+        const updatedList = dataGridRows.filter(
+          (item) => item.client_id !== clientId
+        );
 
         setDataGridRows(updatedList);
 
-        const selectedClientIndex = dataGridRows.findIndex(
-          (client) => client.client_id === getValues('client_id')
-        );
-
         reset(updatedList[selectedClientIndex - 1] || formDefault);
+
+        showToastMessage('Exclusão realizada com sucesso.');
       }
     } catch (error) {
-      showToastMessage('Erro: ' + error);
+      if (isAxiosError<ApiError>(error)) {
+        const axiosError: AxiosError<ApiError> = error;
+
+        const errorMessage = axiosError.response?.data?.error;
+
+        showToastMessage('Erro: ' + errorMessage);
+      } else {
+        showToastMessage('Erro: ' + String(error));
+      }
     } finally {
       setIsLoadingButton(false);
       setShowDialog(false);
-      showToastMessage('Exclusão realizada com sucesso.');
     }
   }
 
@@ -196,6 +209,8 @@ export default function Clients() {
   }
 
   function handleRowClick(params: GridRowParams) {
+    if (isEditable) return;
+
     const selectedClient = dataGridRows.find(
       (client) => client.client_id === params.row.id
     );

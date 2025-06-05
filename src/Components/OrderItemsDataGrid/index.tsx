@@ -103,7 +103,7 @@ export default function OrderItemsDataGrid() {
       field: 'item_total_value',
       headerName: 'Valor',
       width: 90,
-      editable: true,
+      editable: false,
     },
     {
       field: 'observation',

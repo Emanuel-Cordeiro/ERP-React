@@ -14,6 +14,9 @@ export default function ToastMessage({ message }: IToastMessageProps) {
       ContentProps={{
         sx: {
           backgroundColor: message.includes('Erro:') ? 'red' : 'green',
+          color: 'white',
+          fontSize: 14,
+          fontWeight: 'bold',
           flex: 1,
         },
       }}

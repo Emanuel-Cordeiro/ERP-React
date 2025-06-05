@@ -60,6 +60,7 @@ const formDefault = {
   paid: false,
   delivery: false,
   itens: [],
+  total_value: 0,
 };
 
 export default function Orders() {
@@ -89,7 +90,6 @@ export default function Orders() {
       field: 'delivery_date',
       headerName: 'Entrega',
       width: 110,
-      editable: true,
     },
   ];
 
@@ -154,6 +154,9 @@ export default function Orders() {
         formData.client_name.substring(0, formData.client_name.indexOf('-')),
         10
       );
+
+      if (formData.itens.length === 0)
+        throw new Error('É obrigatório informar itens.');
 
       formData.itens = getValues('itens').map((item, index) => ({
         product_id: item.product_id,
@@ -314,6 +317,7 @@ export default function Orders() {
         <Controller
           name="client_name"
           control={control}
+          rules={{ required: 'O cliente é obrigatório.' }}
           render={({ field: { value, onChange } }) => (
             <SearchComponent
               id="client_name"
