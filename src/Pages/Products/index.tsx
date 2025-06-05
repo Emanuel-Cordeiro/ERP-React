@@ -7,6 +7,8 @@ import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
+import { SelectInput } from '../../Components/SelectInput';
+import SearchComponent from '../../Components/SearchComponent';
 import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
 import {
   GridContainer,
@@ -22,6 +24,8 @@ interface ProductProps {
   unity: string;
   stock: number;
   cost: number;
+  recipe_id: string;
+  recipe_description: string;
 }
 
 const formDefault = {
@@ -75,6 +79,7 @@ export default function Products() {
         price: item.price,
         cost: item.cost,
         stock: item.stock,
+        recipe_id: item.recipe_id + ' - ' + item.recipe_description,
       }));
 
       setDataGridRows(rows);
@@ -107,6 +112,11 @@ export default function Products() {
       formData = { ...getValues(), product_id: getValues('product_id') };
     }
 
+    formData.recipe_id = formData.recipe_id.substring(
+      0,
+      formData.recipe_id.indexOf(' -')
+    );
+
     try {
       setIsLoadingButton(true);
 
@@ -116,12 +126,12 @@ export default function Products() {
         loadProducts(data.id);
         setIsEditable(false);
         setIsNewRecord(false);
+        showToastMessage('Cadastro realizado com sucesso.');
       }
     } catch (error) {
       showToastMessage('Erro: ' + error);
     } finally {
       setIsLoadingButton(false);
-      showToastMessage('Cadastro realizado com sucesso.');
     }
   }
 
@@ -239,6 +249,40 @@ export default function Products() {
         />
 
         <Controller
+          name="unity"
+          control={control}
+          rules={{ required: 'A unidade é obrigatória.' }}
+          render={({ field: { value, onChange } }) => (
+            <SelectInput
+              label="Unidade"
+              id="unity"
+              width={78}
+              value={value}
+              setValue={onChange}
+              disabled={!isEditable}
+            />
+          )}
+        />
+      </PageContainer>
+
+      <PageContainer>
+        <Controller
+          name="recipe_id"
+          control={control}
+          render={({ field: { value, onChange } }) => (
+            <SearchComponent
+              id="recipe_id"
+              type="recipe"
+              label="Receita"
+              width={415}
+              disabled={!isEditable}
+              value={value}
+              setValue={onChange}
+            />
+          )}
+        />
+
+        <Controller
           name="price"
           control={control}
           rules={{ min: { value: 1, message: 'Preço não pode ser zero' } }}
@@ -247,22 +291,6 @@ export default function Products() {
               id="price"
               label="Preço"
               width={80}
-              value={value}
-              setValue={onChange}
-              disabled={!isEditable}
-            />
-          )}
-        />
-
-        <Controller
-          name="unity"
-          control={control}
-          rules={{ required: 'A unidade é obrigatória.' }}
-          render={({ field: { value, onChange } }) => (
-            <Input
-              id="unity"
-              label="Unidade"
-              width={90}
               value={value}
               setValue={onChange}
               disabled={!isEditable}
@@ -294,7 +322,7 @@ export default function Products() {
             <Input
               id="stock"
               label="Estoque"
-              width={90}
+              width={78}
               value={value}
               setValue={onChange}
               disabled={!isEditable}

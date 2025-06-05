@@ -8,3 +8,8 @@ export interface IGenericItem {
   id: number;
   description: string;
 }
+
+export interface ApiError {
+  message: string;
+  error: string;
+}

@@ -7,6 +7,7 @@ import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 import api from '../../Services/api';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
+import { SelectInput } from '../../Components/SelectInput';
 import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
 import {
   GridContainer,
@@ -93,15 +94,9 @@ export default function Ingredients() {
   }
 
   async function handleRegisterIngredient() {
-    let formData;
+    const formData = { ...getValues() };
 
-    if (isNewRecord) {
-      formData = { ...getValues() };
-
-      delete formData.ingredient_id;
-    } else {
-      formData = { ...getValues(), ingredient_id: getValues('id') };
-    }
+    if (isNewRecord) delete formData.ingredient_id;
 
     try {
       setIsLoadingButton(true);
@@ -246,10 +241,10 @@ export default function Ingredients() {
           control={control}
           rules={{ required: 'A unidade é obrigatória.' }}
           render={({ field: { value, onChange } }) => (
-            <Input
+            <SelectInput
+              label={'Unidade'}
               id="unity"
-              label="Unidade"
-              width={80}
+              width={78}
               value={value}
               setValue={onChange}
               disabled={!isEditable}

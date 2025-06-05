@@ -1,15 +1,20 @@
-import { Autocomplete, TextField } from '@mui/material';
-import api from '../../Services/api';
 import { useEffect, useState } from 'react';
-import { ClientProps } from '../../Pages/Clients';
 
-interface ISearchComponent {
+import { Autocomplete, TextField } from '@mui/material';
+
+import api from '../../Services/api';
+import { ClientProps } from '../../Pages/Clients';
+import { RecipeProps } from '../../Pages/Recipes';
+import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
+
+interface SearchComponentProps {
   id: string;
   label: string;
   width: number;
   disabled: boolean;
   value: string | undefined;
   setValue: (value: unknown) => void;
+  type: string;
 }
 
 export default function SearchComponent({
@@ -19,25 +24,47 @@ export default function SearchComponent({
   value,
   setValue,
   disabled,
-}: ISearchComponent) {
+  type,
+}: SearchComponentProps) {
   const [options, setOptions] = useState<Array<string>>([]);
 
-  useEffect(() => {
-    async function fetchClients() {
-      try {
-        const { data } = await api.get('Cliente');
+  const { showToastMessage } = useMainLayoutContext();
 
-        const names = data.map(
-          (client: ClientProps) => client.client_id + ' - ' + client.name
-        );
+  async function fetchClients() {
+    try {
+      const { data } = await api.get('Cliente');
 
-        setOptions(names);
-      } catch (err) {
-        console.error('Erro ao buscar clientes:', err);
-      }
+      const names = data.map(
+        (client: ClientProps) => client.client_id + ' - ' + client.name
+      );
+
+      setOptions(names);
+    } catch (error) {
+      showToastMessage('Erro ao buscar clientes:' + error);
     }
+  }
 
-    fetchClients();
+  async function fetchRecipes() {
+    try {
+      const { data } = await api.get('Receita');
+
+      const names = data.map(
+        (recipe: RecipeProps) => recipe.recipe_id + ' - ' + recipe.description
+      );
+
+      setOptions(names);
+    } catch (error) {
+      showToastMessage('Erro ao buscar receitas:' + error);
+    }
+  }
+
+  useEffect(() => {
+    if (type === 'client') {
+      fetchClients();
+    } else if (type === 'recipe') {
+      fetchRecipes();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

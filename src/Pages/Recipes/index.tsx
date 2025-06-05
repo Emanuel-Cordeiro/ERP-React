@@ -14,6 +14,7 @@ interface RecipeIngredientProps {
   ingredient_id?: number;
   description: string;
   quantity: number;
+  cost: number;
 }
 
 export interface RecipeProps {
@@ -94,43 +95,52 @@ export default function Recipes() {
         formData = getValues();
       }
 
+      let cost = 0;
+
+      if (formData.itens.length === 0)
+        throw new Error('É obrigatório informar itens.');
+
+      for (let i = 0; i < formData.itens.length; i++) {
+        cost += formData.itens[i].cost * formData.itens[i].quantity;
+      }
+
+      formData.cost = cost;
+
       const { status } = await api.post('Receita', formData);
 
       if (status === 200 || status === 201) {
         loadRecipes();
         setIsEditable(false);
         setIsNewRecord(false);
+        showToastMessage('Cadastro realizado com sucesso.');
       }
     } catch (error) {
       showToastMessage('Erro: ' + error);
     } finally {
       setIsLoadingButton(false);
-      showToastMessage('Cadastro realizado com sucesso.');
     }
   }
 
   async function handleDeleteRecipe() {
-    const id = getValues('recipe_id');
+    const recipeId = getValues('recipe_id');
 
     try {
-      const res = await api.delete(`Receita/${id}`);
+      const res = await api.delete(`Receita/${recipeId}`);
 
-      if (res.status === 201) {
-        let selectedItemIndex = dataGridRows.findIndex(
-          (item) => item.recipe_id === id
+      if (res.status === 204) {
+        const updatedList = dataGridRows.filter(
+          (item) => item.recipe_id !== recipeId
         );
 
-        if (selectedItemIndex !== -1) selectedItemIndex = 0;
+        setDataGridRows(updatedList);
 
-        const updatedList = dataGridRows.filter(
-          (item) => item.recipe_id !== id
+        const selectedItemIndex = dataGridRows.findIndex(
+          (item) => item.recipe_id === getValues('recipe_id')
         );
 
         reset({
-          ...updatedList[selectedItemIndex - 1],
+          ...(updatedList[selectedItemIndex - 1] || formDefault),
         });
-
-        setDataGridRows(updatedList);
       }
     } catch (error) {
       showToastMessage('Erro: ' + error);

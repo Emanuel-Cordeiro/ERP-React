@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { AxiosError, isAxiosError } from 'axios';
 import { Controller, useForm } from 'react-hook-form';
 
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 
 import api from '../../Services/api';
+import { ApiError } from '../../Types/common';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
 import useMainLayoutContext from '../../Hooks/useMainLayoutContext';
@@ -55,7 +57,8 @@ export default function Clients() {
 
   const dataGridColumns = useMemo<GridColDef<(typeof dataGridRows)[number]>[]>(
     () => [
-      { field: 'id', headerName: 'Código', width: 70 },
+      { field: 'id', headerName: 'Id', width: 10 },
+      { field: 'client_id', headerName: 'Código', width: 70 },
       { field: 'name', headerName: 'Nome', width: 300 },
       { field: 'phone', headerName: 'Telefone', width: 130 },
       { field: 'address', headerName: 'Endereço', width: 200 },
@@ -73,8 +76,8 @@ export default function Clients() {
 
       const { data } = await api.get('Cliente');
 
-      const rows = data.map((client: ClientProps) => ({
-        id: client.client_id,
+      const rows = data.map((client: ClientProps, index: number) => ({
+        id: index,
         client_id: client.client_id,
         name: client.name,
         number: client.number,
@@ -109,7 +112,7 @@ export default function Clients() {
       if (isNewRecord) {
         formData = { ...getValues() };
 
-        delete formData.id;
+        delete formData.client_id;
       } else {
         formData = { ...getValues(), client_id: getValues('client_id') };
       }
@@ -120,40 +123,53 @@ export default function Clients() {
         loadClients(data.id);
         setIsEditable(false);
         setIsNewRecord(false);
+        showToastMessage(
+          `Cadastro ${status === 201 ? 'realizado' : 'alterado'} com sucesso.`
+        );
       }
     } catch (error) {
       showToastMessage('Erro: ' + error);
     } finally {
       setIsLoadingButton(false);
-      showToastMessage('Cadastro realizado com sucesso.');
     }
   }
 
   async function handleDeleteClient() {
-    const id = getValues('client_id');
+    const clientId = getValues('client_id');
 
     try {
       setIsLoadingButton(true);
 
-      const res = await api.delete(`Cliente/${id}`);
+      const res = await api.delete(`Cliente/${clientId}`);
 
-      if (res.status === 200) {
-        const updatedList = dataGridRows.filter((item) => item.id !== id);
+      if (res.status === 204) {
+        const selectedClientIndex = dataGridRows.findIndex(
+          (client) => client.client_id === clientId
+        );
+
+        const updatedList = dataGridRows.filter(
+          (item) => item.client_id !== clientId
+        );
 
         setDataGridRows(updatedList);
 
-        const selectedClientIndex = dataGridRows.findIndex(
-          (client) => client.client_id === getValues('client_id')
-        );
-
         reset(updatedList[selectedClientIndex - 1] || formDefault);
+
+        showToastMessage('Exclusão realizada com sucesso.');
       }
     } catch (error) {
-      showToastMessage('Erro: ' + error);
+      if (isAxiosError<ApiError>(error)) {
+        const axiosError: AxiosError<ApiError> = error;
+
+        const errorMessage = axiosError.response?.data?.error;
+
+        showToastMessage('Erro: ' + errorMessage);
+      } else {
+        showToastMessage('Erro: ' + String(error));
+      }
     } finally {
       setIsLoadingButton(false);
       setShowDialog(false);
-      showToastMessage('Exclusão realizada com sucesso.');
     }
   }
 
@@ -196,8 +212,10 @@ export default function Clients() {
   }
 
   function handleRowClick(params: GridRowParams) {
+    if (isEditable) return;
+
     const selectedClient = dataGridRows.find(
-      (client) => client.client_id === params.row.id
+      (client) => client.id === params.row.id
     );
 
     reset({ ...selectedClient });
@@ -270,7 +288,7 @@ export default function Clients() {
             <Input
               id="address"
               label="Endereço"
-              width={500}
+              width={300}
               value={value}
               setValue={onChange}
               disabled={!isEditable}
@@ -302,7 +320,7 @@ export default function Clients() {
             <Input
               id="district"
               label="Bairro"
-              width={250}
+              width={185}
               value={value}
               setValue={onChange}
               disabled={!isEditable}
@@ -318,7 +336,7 @@ export default function Clients() {
             <Input
               id="city"
               label="Cidade"
-              width={250}
+              width={150}
               value={value}
               setValue={onChange}
               disabled={!isEditable}

@@ -30,6 +30,7 @@ interface OrdemItemProps {
   price: number;
   observation: string;
   description: string;
+  item_total_value: number;
 }
 
 export interface OrderProps {
@@ -40,6 +41,8 @@ export interface OrderProps {
   delivery_date: string;
   observation: string;
   paid: boolean;
+  delivery: boolean;
+  total_value: number;
   itens: Array<OrdemItemProps>;
 }
 
@@ -55,7 +58,9 @@ const formDefault = {
   }),
   observation: '',
   paid: false,
+  delivery: false,
   itens: [],
+  total_value: 0,
 };
 
 export default function Orders() {
@@ -85,7 +90,6 @@ export default function Orders() {
       field: 'delivery_date',
       headerName: 'Entrega',
       width: 110,
-      editable: true,
     },
   ];
 
@@ -112,6 +116,8 @@ export default function Orders() {
         ),
         observation: item.observation,
         paid: item.paid,
+        total_value: item.total_value,
+        delivery: item.delivery,
       }));
 
       setDataGridRows(rows);
@@ -149,6 +155,9 @@ export default function Orders() {
         10
       );
 
+      if (formData.itens.length === 0)
+        throw new Error('É obrigatório informar itens.');
+
       formData.itens = getValues('itens').map((item, index) => ({
         product_id: item.product_id,
         order_item_order: index + 1,
@@ -156,6 +165,7 @@ export default function Orders() {
         price: item.price,
         observation: item.observation,
         description: item.description,
+        item_total_value: item.item_total_value,
       }));
 
       const formatedDate = getValues('delivery_date').replace(
@@ -167,16 +177,16 @@ export default function Orders() {
 
       const { data, status } = await api.post('Pedido', formData);
 
-      if (status === 201) {
+      if (status === 201 || status === 200) {
         loadOrders(data.id);
         setIsNewRecord(false);
         setIsEditable(false);
+        showToastMessage('Cadastro realizado com sucesso.');
       }
     } catch (error) {
       showToastMessage('Erro: ' + error);
     } finally {
       setIsLoadingButton(false);
-      showToastMessage('Cadastro realizado com sucesso.');
     }
   }
 
@@ -200,6 +210,8 @@ export default function Orders() {
         reset({
           ...updatedList[selectedItemIndex - 1],
         });
+
+        showToastMessage('Exclusão realizada com sucesso.');
       }
 
       setShouldDeleteItem(false);
@@ -208,7 +220,6 @@ export default function Orders() {
     } finally {
       setIsLoadingButton(false);
       setShowDialog(false);
-      showToastMessage('Exclusão realizada com sucesso.');
     }
   }
 
@@ -307,10 +318,12 @@ export default function Orders() {
         <Controller
           name="client_name"
           control={control}
+          rules={{ required: 'O cliente é obrigatório.' }}
           render={({ field: { value, onChange } }) => (
             <SearchComponent
               id="client_name"
               label="Cliente"
+              type="client"
               width={500}
               disabled={!isEditable}
               value={value}
@@ -335,6 +348,60 @@ export default function Orders() {
         />
 
         <Controller
+          name="delivery"
+          control={control}
+          render={({ field: { value, onChange } }) => (
+            <div
+              style={{
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Switch
+                checked={value}
+                onClick={onChange}
+                disabled={!isEditable}
+              />
+              <h5 style={{ color: 'var(--font)' }}>Entregar</h5>
+            </div>
+          )}
+        />
+      </PageContainer>
+
+      <PageContainer>
+        <Controller
+          name="observation"
+          control={control}
+          render={({ field: { value, onChange } }) => (
+            <Input
+              id="observation"
+              label="Observação"
+              width={615}
+              value={value}
+              setValue={onChange}
+              disabled={!isEditable}
+            />
+          )}
+        />
+
+        <Controller
+          name="total_value"
+          control={control}
+          render={({ field: { value, onChange } }) => (
+            <Input
+              id="total_value"
+              label="Valor Total"
+              width={130}
+              value={value}
+              setValue={onChange}
+              disabled
+            />
+          )}
+        />
+
+        <Controller
           name="paid"
           control={control}
           render={({ field: { value, onChange } }) => (
@@ -353,23 +420,6 @@ export default function Orders() {
               />
               <h5 style={{ color: 'var(--font)' }}>Pedido Pago</h5>
             </div>
-          )}
-        />
-      </PageContainer>
-
-      <PageContainer>
-        <Controller
-          name="observation"
-          control={control}
-          render={({ field: { value, onChange } }) => (
-            <Input
-              id="observation"
-              label="Observação"
-              width={760}
-              value={value}
-              setValue={onChange}
-              disabled={!isEditable}
-            />
           )}
         />
       </PageContainer>

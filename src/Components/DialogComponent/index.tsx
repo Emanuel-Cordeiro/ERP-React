@@ -6,6 +6,7 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material';
+import { useState } from 'react';
 
 interface IDialogProps {
   title: string;
@@ -26,6 +27,16 @@ export default function DialogComponent({
   handleButtonAction,
   cancelButtonText = 'Não',
 }: IDialogProps) {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleButtonActionAndState = () => {
+    setIsLoading(true);
+
+    handleButtonAction();
+
+    setIsLoading(false);
+  };
+
   return (
     <Dialog open={state}>
       <DialogTitle>{title}</DialogTitle>
@@ -34,7 +45,11 @@ export default function DialogComponent({
       </DialogContent>
       <DialogActions>
         <Button onClick={() => setState(false)}>{cancelButtonText}</Button>
-        <Button onClick={handleButtonAction} autoFocus>
+        <Button
+          onClick={handleButtonActionAndState}
+          autoFocus
+          loading={isLoading}
+        >
           {handleButtonText}
         </Button>
       </DialogActions>
