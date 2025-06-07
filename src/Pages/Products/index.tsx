@@ -15,6 +15,8 @@ import {
   PageContainer,
   PageTitle,
 } from '../../Components/StyleComponents';
+import { AxiosError, isAxiosError } from 'axios';
+import { ApiError } from '../../Types/common';
 
 interface ProductProps {
   id?: number;
@@ -30,11 +32,14 @@ interface ProductProps {
 
 const formDefault = {
   id: 0,
+  product_id: 0,
   description: '',
   price: 0,
   unity: '',
   stock: 0,
   cost: 0,
+  recipe_id: '',
+  recipe_description: '',
 };
 
 export default function Products() {
@@ -56,7 +61,8 @@ export default function Products() {
     useForm<ProductProps>({ defaultValues: formDefault });
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
-    { field: 'id', headerName: 'Código', width: 70 },
+    { field: 'id', headerName: 'Id', width: 10 },
+    { field: 'product_id', headerName: 'Código', width: 70 },
     { field: 'description', headerName: 'Descrição', width: 300 },
     { field: 'price', headerName: 'Preço', width: 100 },
     { field: 'unity', headerName: 'Unidade', width: 100 },
@@ -65,7 +71,7 @@ export default function Products() {
   ];
 
   // API Communication
-  async function loadProducts(id?: number) {
+  async function loadProducts(product_id?: number) {
     try {
       setIsLoading(true);
 
@@ -85,14 +91,13 @@ export default function Products() {
       setDataGridRows(rows);
 
       let productIndexInGrid = rows.findIndex(
-        (item: ProductProps) => item.product_id === id
+        (item: ProductProps) => item.product_id === product_id
       );
 
       if (productIndexInGrid === -1) productIndexInGrid = 0;
 
       reset({
         ...rows[productIndexInGrid],
-        product_id: rows[productIndexInGrid].product_id,
       });
     } catch (error) {
       showToastMessage('Erro: ' + error);
@@ -102,23 +107,17 @@ export default function Products() {
   }
 
   async function handleRegisterProduct() {
-    let formData;
-
-    if (isNewRecord) {
-      formData = { ...getValues() };
-
-      delete formData.product_id;
-    } else {
-      formData = { ...getValues(), product_id: getValues('product_id') };
-    }
-
-    formData.recipe_id = formData.recipe_id.substring(
-      0,
-      formData.recipe_id.indexOf(' -')
-    );
-
     try {
       setIsLoadingButton(true);
+      //ajustar custo da receita
+      const formData = { ...getValues() };
+
+      if (isNewRecord) delete formData.product_id;
+
+      formData.recipe_id = formData.recipe_id.substring(
+        0,
+        formData.recipe_id.indexOf(' -')
+      );
 
       const { status, data } = await api.post('Produto', formData);
 
@@ -126,40 +125,61 @@ export default function Products() {
         loadProducts(data.id);
         setIsEditable(false);
         setIsNewRecord(false);
-        showToastMessage('Cadastro realizado com sucesso.');
+        showToastMessage(
+          `Cadastro ${status === 201 ? 'realizado' : 'alterado'} com sucesso.`
+        );
       }
     } catch (error) {
-      showToastMessage('Erro: ' + error);
+      if (isAxiosError<ApiError>(error)) {
+        const axiosError: AxiosError<ApiError> = error;
+
+        const errorMessage = axiosError.response?.data?.error;
+
+        showToastMessage('Erro: ' + errorMessage);
+      } else {
+        showToastMessage('Erro: ' + String(error));
+      }
     } finally {
       setIsLoadingButton(false);
     }
   }
 
   async function handleDeleteProduct() {
-    const id = getValues('id');
+    const productId = getValues('product_id');
 
     try {
-      const res = await api.delete(`Produto/${id}`);
+      setIsLoadingButton(true);
 
-      if (res.status === 201) {
-        const updatedList = dataGridRows.filter((item) => item.id !== id);
+      const res = await api.delete(`Produto/${productId}`);
+
+      if (res.status === 204) {
+        const selectedItemIndex = dataGridRows.findIndex(
+          (item) => item.product_id === productId
+        );
+
+        const updatedList = dataGridRows.filter(
+          (item) => item.product_id !== productId
+        );
 
         setDataGridRows(updatedList);
 
-        const selectedItemIndex = dataGridRows.findIndex(
-          (item) => item.id === getValues('id')
-        );
+        reset(updatedList[selectedItemIndex - 1] || formDefault);
 
-        reset({
-          ...updatedList[selectedItemIndex - 1],
-        });
+        showToastMessage('Exclusão realizada com sucesso.');
       }
     } catch (error) {
-      showToastMessage('Erro: ' + error);
+      if (isAxiosError<ApiError>(error)) {
+        const axiosError: AxiosError<ApiError> = error;
+
+        const errorMessage = axiosError.response?.data?.error;
+
+        showToastMessage('Erro: ' + errorMessage);
+      } else {
+        showToastMessage('Erro: ' + String(error));
+      }
     } finally {
       setIsLoadingButton(false);
       setShowDialog(false);
-      showToastMessage('Exclusão realizada com sucesso.');
     }
   }
 
@@ -167,7 +187,7 @@ export default function Products() {
   function handleAskDeleteProduct() {
     setDialogInfo({
       dialogTitle: 'Cadastro de Produtos',
-      dialogText: 'Excluir esse Produto?',
+      dialogText: 'Excluir esse produto?',
       dialogButtonText: 'Excluir',
     });
 
@@ -189,7 +209,7 @@ export default function Products() {
       });
     } else {
       const selectedItemIndex = dataGridRows.findIndex(
-        (item) => item.id === getValues('id')
+        (item) => item.product_id === getValues('product_id')
       );
 
       reset({
@@ -218,7 +238,7 @@ export default function Products() {
 
       <PageContainer>
         <Controller
-          name="id"
+          name="product_id"
           control={control}
           render={({ field: { value, onChange } }) => (
             <Input
@@ -301,7 +321,6 @@ export default function Products() {
         <Controller
           name="cost"
           control={control}
-          rules={{ min: { value: 1, message: 'Custo não pode ser zero' } }}
           render={({ field: { value, onChange } }) => (
             <Input
               id="cost"
@@ -309,7 +328,7 @@ export default function Products() {
               width={90}
               value={value}
               setValue={onChange}
-              disabled={!isEditable}
+              disabled
             />
           )}
         />
