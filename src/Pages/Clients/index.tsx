@@ -70,7 +70,7 @@ export default function Clients() {
   );
 
   // API communication
-  async function loadClients(id?: number) {
+  async function loadClients(client_id?: number) {
     try {
       setIsLoading(true);
 
@@ -90,12 +90,14 @@ export default function Clients() {
       setDataGridRows(rows);
 
       let clientGridIndex = rows.findIndex(
-        (item: ClientProps) => item.client_id === id
+        (item: ClientProps) => item.client_id === client_id
       );
 
       if (clientGridIndex === -1) clientGridIndex = 0;
 
-      reset({ ...rows[clientGridIndex], client_id: rows[clientGridIndex].id });
+      reset({
+        ...rows[clientGridIndex],
+      });
     } catch (error) {
       showToastMessage('Erro: ' + error);
     } finally {
@@ -107,15 +109,9 @@ export default function Clients() {
     try {
       setIsLoadingButton(true);
 
-      let formData;
+      const formData = { ...getValues() };
 
-      if (isNewRecord) {
-        formData = { ...getValues() };
-
-        delete formData.client_id;
-      } else {
-        formData = { ...getValues(), client_id: getValues('client_id') };
-      }
+      if (isNewRecord) delete formData.client_id;
 
       const { status, data } = await api.post('Cliente', formData);
 
@@ -232,7 +228,7 @@ export default function Clients() {
 
       <PageContainer>
         <Controller
-          name="id"
+          name="client_id"
           control={control}
           render={({ field: { value, onChange } }) => (
             <Input
