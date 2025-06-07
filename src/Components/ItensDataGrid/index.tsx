@@ -36,6 +36,7 @@ export default function ItensDataGrid() {
   const fieldArray = useFieldArray({ control: form.control, name: 'itens' });
 
   const itemDataGridColumns: GridColDef<ItensProps>[] = [
+    { field: 'id', headerName: 'Id', width: 10 },
     { field: 'ingredient_id', headerName: 'Código', width: 70 },
     {
       field: 'description',
@@ -60,7 +61,7 @@ export default function ItensDataGrid() {
           }}
         >
           {itensSelect.map((item) => (
-            <MenuItem key={item.id} value={item.id}>
+            <MenuItem key={item.ingredient_id} value={item.ingredient_id}>
               {item.description}
             </MenuItem>
           ))}
@@ -105,8 +106,8 @@ export default function ItensDataGrid() {
     try {
       const { data } = await api.get('Ingrediente');
 
-      const obj = data.map((item: SelectItemProps) => ({
-        id: item.ingredient_id,
+      const obj = data.map((item: SelectItemProps, index: number) => ({
+        id: index + 1,
         ingredient_id: item.ingredient_id,
         description: item.description,
         cost: item.cost,
@@ -136,7 +137,7 @@ export default function ItensDataGrid() {
       fieldArray.update(existingIndex, updatedRows[existingIndex]);
     } else {
       const selectedIngredient = itensSelect.find(
-        (item) => item.id === selectedId
+        (item) => item.ingredient_id === selectedId
       );
 
       const updatedItem = {

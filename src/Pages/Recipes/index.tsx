@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 
+import { AxiosError, isAxiosError } from 'axios';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 
 import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 
 import api from '../../Services/api';
+import { ApiError } from '../../Types/common';
 import Input from '../../Components/TextField';
 import ButtonForm from '../../Components/ButtonForm';
 import ItensDataGrid from '../../Components/ItensDataGrid';
@@ -19,7 +21,7 @@ interface RecipeIngredientProps {
 
 export interface RecipeProps {
   id?: number;
-  recipe_id: number;
+  recipe_id?: number;
   description: string;
   cost: number;
   itens: Array<RecipeIngredientProps>;
@@ -52,13 +54,14 @@ export default function Recipes() {
   const { control, getValues, reset, handleSubmit, formState } = form;
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
+    { field: 'id', headerName: 'Id', width: 10 },
     { field: 'recipe_id', headerName: 'Código', width: 70 },
     { field: 'description', headerName: 'Descrição', width: 300 },
     { field: 'cost', headerName: 'Custo', width: 100, editable: true },
   ];
 
   // API Communication
-  async function loadRecipes() {
+  async function loadRecipes(recipe_id?: number) {
     try {
       setIsLoading(true);
 
@@ -73,7 +76,13 @@ export default function Recipes() {
 
       setDataGridRows(rows);
 
-      reset(rows[0]);
+      let recipeGridIndex = rows.findIndex(
+        (item: RecipeProps) => item.recipe_id === recipe_id
+      );
+
+      if (recipeGridIndex === -1) recipeGridIndex = 0;
+
+      reset({ ...rows[recipeGridIndex] });
     } catch (error) {
       showToastMessage('Erro: ' + error);
     } finally {
@@ -85,15 +94,9 @@ export default function Recipes() {
     try {
       setIsLoadingButton(true);
 
-      let formData;
+      const formData = { ...getValues() };
 
-      if (isNewRecord) {
-        formData = getValues();
-
-        delete formData.id;
-      } else {
-        formData = getValues();
-      }
+      if (isNewRecord) delete formData.recipe_id;
 
       let cost = 0;
 
@@ -106,13 +109,15 @@ export default function Recipes() {
 
       formData.cost = cost;
 
-      const { status } = await api.post('Receita', formData);
+      const { status, data } = await api.post('Receita', formData);
 
       if (status === 200 || status === 201) {
-        loadRecipes();
+        loadRecipes(data.id);
         setIsEditable(false);
         setIsNewRecord(false);
-        showToastMessage('Cadastro realizado com sucesso.');
+        showToastMessage(
+          `Cadastro ${status === 201 ? 'realizado' : 'alterado'} com sucesso.`
+        );
       }
     } catch (error) {
       showToastMessage('Erro: ' + error);
@@ -125,37 +130,46 @@ export default function Recipes() {
     const recipeId = getValues('recipe_id');
 
     try {
+      setIsLoadingButton(true);
+
       const res = await api.delete(`Receita/${recipeId}`);
 
       if (res.status === 204) {
+        const selectedItemIndex = dataGridRows.findIndex(
+          (item) => item.recipe_id === recipeId
+        );
+
         const updatedList = dataGridRows.filter(
           (item) => item.recipe_id !== recipeId
         );
 
         setDataGridRows(updatedList);
 
-        const selectedItemIndex = dataGridRows.findIndex(
-          (item) => item.recipe_id === getValues('recipe_id')
-        );
+        reset(updatedList[selectedItemIndex - 1] || formDefault);
 
-        reset({
-          ...(updatedList[selectedItemIndex - 1] || formDefault),
-        });
+        showToastMessage('Exclusão realizada com sucesso.');
       }
     } catch (error) {
-      showToastMessage('Erro: ' + error);
+      if (isAxiosError<ApiError>(error)) {
+        const axiosError: AxiosError<ApiError> = error;
+
+        const errorMessage = axiosError.response?.data?.error;
+
+        showToastMessage('Erro: ' + errorMessage);
+      } else {
+        showToastMessage('Erro: ' + String(error));
+      }
     } finally {
       setIsLoadingButton(false);
       setShowDialog(false);
-      showToastMessage('Exclusão realizada com sucesso.');
     }
   }
 
   async function handleEditRecipe() {
-    const id = getValues('recipe_id');
-
     try {
-      const { data } = await api.get(`Receita/${id}`);
+      setIsLoadingButton(true);
+
+      const { data } = await api.get(`Receita/${getValues('recipe_id')}`);
 
       reset(data);
 
@@ -171,7 +185,7 @@ export default function Recipes() {
   function handleAskDeleteRecipe() {
     setDialogInfo({
       dialogTitle: 'Cadastro de Receitas',
-      dialogText: 'Excluir esse Receita?',
+      dialogText: 'Excluir essa receita?',
       dialogButtonText: 'Excluir',
     });
 
@@ -193,7 +207,7 @@ export default function Recipes() {
       });
     } else {
       const selectedItemIndex = dataGridRows.findIndex(
-        (item) => item.id === getValues('id')
+        (item) => item.recipe_id === getValues('recipe_id')
       );
 
       reset({
@@ -206,6 +220,8 @@ export default function Recipes() {
   }
 
   function handleRowClick(params: GridRowParams) {
+    if (isEditable) return;
+
     const selectedItem = dataGridRows.find((item) => item.id === params.row.id);
 
     reset({ ...selectedItem });
@@ -268,7 +284,7 @@ export default function Recipes() {
               width={80}
               value={value}
               setValue={onChange}
-              disabled={!isEditable}
+              disabled
             />
           )}
         />

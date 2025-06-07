@@ -14,6 +14,8 @@ import {
   PageContainer,
   PageTitle,
 } from '../../Components/StyleComponents';
+import { AxiosError, isAxiosError } from 'axios';
+import { ApiError } from '../../Types/common';
 
 interface IngredientProps {
   id?: number;
@@ -26,6 +28,7 @@ interface IngredientProps {
 
 const formDefault = {
   id: 0,
+  ingredient_id: 0,
   description: '',
   unity: '',
   cost: 0,
@@ -51,7 +54,8 @@ export default function Ingredients() {
     useForm<IngredientProps>({ defaultValues: formDefault });
 
   const dataGridColumns: GridColDef<(typeof dataGridRows)[number]>[] = [
-    { field: 'id', headerName: 'Código', width: 70 },
+    { field: 'id', headerName: 'Id', width: 10 },
+    { field: 'ingredient_id', headerName: 'Código', width: 70 },
     { field: 'description', headerName: 'Descrição', width: 300 },
     { field: 'unity', headerName: 'Unidade', width: 100 },
     { field: 'cost', headerName: 'Custo', width: 100 },
@@ -59,14 +63,14 @@ export default function Ingredients() {
   ];
 
   //API Communication
-  async function loadIngredients(id?: number) {
+  async function loadIngredients(ingredientId?: number) {
     try {
       setIsLoading(true);
 
       const { data } = await api.get('Ingrediente');
 
-      const rows = data.map((ingredient: IngredientProps) => ({
-        id: ingredient.ingredient_id,
+      const rows = data.map((ingredient: IngredientProps, index: number) => ({
+        id: index + 1,
         ingredient_id: ingredient.ingredient_id,
         description: ingredient.description,
         unity: ingredient.unity,
@@ -77,14 +81,13 @@ export default function Ingredients() {
       setDataGridRows(rows);
 
       let ingredientIndexInGrid = rows.findIndex(
-        (item: IngredientProps) => item.ingredient_id === id
+        (item: IngredientProps) => item.ingredient_id === ingredientId
       );
 
       if (ingredientIndexInGrid === -1) ingredientIndexInGrid = 0;
 
       reset({
         ...rows[ingredientIndexInGrid],
-        ingredient_id: rows[ingredientIndexInGrid].ingredient_id,
       });
     } catch (error) {
       showToastMessage('Erro: ' + error);
@@ -94,12 +97,12 @@ export default function Ingredients() {
   }
 
   async function handleRegisterIngredient() {
-    const formData = { ...getValues() };
-
-    if (isNewRecord) delete formData.ingredient_id;
-
     try {
       setIsLoadingButton(true);
+
+      const formData = { ...getValues() };
+
+      if (isNewRecord) delete formData.ingredient_id;
 
       const { status, data } = await api.post('Ingrediente', formData);
 
@@ -107,43 +110,53 @@ export default function Ingredients() {
         loadIngredients(data.id);
         setIsEditable(false);
         setIsNewRecord(false);
-      }
-    } catch (error) {
-      showToastMessage(error);
-    } finally {
-      setIsLoadingButton(false);
-      showToastMessage('Cadastro realizado com sucesso.');
-    }
-  }
-
-  async function handleDeleteIngredient() {
-    const id = getValues('ingredient_id');
-
-    try {
-      setIsLoadingButton(true);
-
-      const res = await api.delete(`Ingrediente/${id}`);
-
-      if (res.status === 201) {
-        const updatedList = dataGridRows.filter((item) => item.id !== id);
-
-        setDataGridRows(updatedList);
-
-        const selectedIngredientIndex = dataGridRows.findIndex(
-          (ingredient) =>
-            ingredient.ingredient_id === getValues('ingredient_id')
+        showToastMessage(
+          `Cadastro ${status === 201 ? 'realizado' : 'alterado'} com sucesso.`
         );
-
-        reset({
-          ...updatedList[selectedIngredientIndex - 1],
-        });
       }
     } catch (error) {
       showToastMessage('Erro: ' + error);
     } finally {
       setIsLoadingButton(false);
+    }
+  }
+
+  async function handleDeleteIngredient() {
+    const ingredientId = getValues('ingredient_id');
+
+    try {
+      setIsLoadingButton(true);
+
+      const res = await api.delete(`Ingrediente/${ingredientId}`);
+
+      if (res.status === 204) {
+        const selectedIngredientIndex = dataGridRows.findIndex(
+          (ingredient) => ingredient.ingredient_id === ingredientId
+        );
+
+        const updatedList = dataGridRows.filter(
+          (item) => item.ingredient_id !== ingredientId
+        );
+
+        setDataGridRows(updatedList);
+
+        reset(updatedList[selectedIngredientIndex - 1] || formDefault);
+
+        showToastMessage('Exclusão realizada com sucesso.');
+      }
+    } catch (error) {
+      if (isAxiosError<ApiError>(error)) {
+        const axiosError: AxiosError<ApiError> = error;
+
+        const errorMessage = axiosError.response?.data?.error;
+
+        showToastMessage('Erro: ' + errorMessage);
+      } else {
+        showToastMessage('Erro: ' + String(error));
+      }
+    } finally {
+      setIsLoadingButton(false);
       setShowDialog(false);
-      showToastMessage('Exclusão realizada com sucesso.');
     }
   }
 
@@ -151,7 +164,7 @@ export default function Ingredients() {
   function handleAskDeleteIngredient() {
     setDialogInfo({
       dialogTitle: 'Cadastro de Ingredientes',
-      dialogText: 'Excluir esse Ingrediente?',
+      dialogText: 'Excluir esse ingrediente?',
       dialogButtonText: 'Excluir',
     });
 
@@ -206,7 +219,7 @@ export default function Ingredients() {
 
       <PageContainer>
         <Controller
-          name="id"
+          name="ingredient_id"
           control={control}
           render={({ field: { value, onChange } }) => (
             <Input

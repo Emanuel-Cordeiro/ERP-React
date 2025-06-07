@@ -29,6 +29,7 @@ export interface ClientProps {
 
 const formDefault = {
   id: 0,
+  client_id: 0,
   name: '',
   address: '',
   number: '',
@@ -77,7 +78,7 @@ export default function Clients() {
       const { data } = await api.get('Cliente');
 
       const rows = data.map((client: ClientProps, index: number) => ({
-        id: index,
+        id: index + 1,
         client_id: client.client_id,
         name: client.name,
         number: client.number,
